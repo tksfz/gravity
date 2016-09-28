@@ -24,9 +24,7 @@ def commonSettings: Project => Project =
       )
     )
 
-val jsDir = "demo/assets"
-
-def createLauncher(scope: String = "compile"): Project => Project =
+def createLauncher(jsDir: String, scope: String = "compile"): Project => Project =
   _.settings(persistLauncher := true,
     persistLauncher in Test := false,
     crossTarget in (Compile, fullOptJS) := file(jsDir),
@@ -46,4 +44,16 @@ lazy val demo = project
         "com.github.japgolly.scalacss"      %%% "ext-react" % scalaCSSVersion
       )
     )
-  .configure(commonSettings, createLauncher())
+  .configure(commonSettings, createLauncher("demo/assets"))
+
+lazy val app = project
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1",
+      "com.github.japgolly.scalajs-react" %%% "extra" % "0.11.1",
+      "com.github.chandu0101.scalajs-react-components" %%% "core" % "0.5.0",
+      "com.github.japgolly.scalacss"      %%% "core"     % scalaCSSVersion,
+      "com.github.japgolly.scalacss"      %%% "ext-react" % scalaCSSVersion
+    )
+  )
+  .configure(commonSettings, createLauncher("app/assets"))
