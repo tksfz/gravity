@@ -21,6 +21,10 @@ def commonSettings: Project => Project =
       updateOptions        := updateOptions.value.withCachedResolution(true),
       dependencyOverrides ++= Set(
         "org.scala-js"   %% "scalajs-test-interface" % "0.6.11"
+      ),
+      resolvers ++= Seq(
+        Resolver.sonatypeRepo("releases"),
+        Resolver.sonatypeRepo("snapshots")
       )
     )
 
@@ -53,7 +57,8 @@ lazy val app = project
       "com.github.japgolly.scalajs-react" %%% "extra" % "0.11.1",
       "com.github.chandu0101.scalajs-react-components" %%% "core" % "0.5.0",
       "com.github.japgolly.scalacss"      %%% "core"     % scalaCSSVersion,
-      "com.github.japgolly.scalacss"      %%% "ext-react" % scalaCSSVersion
+      "com.github.japgolly.scalacss"      %%% "ext-react" % scalaCSSVersion,
+      "com.chuusai" %%% "shapeless" % "2.3.2"
     )
   )
   .configure(commonSettings, createLauncher("app/assets"))
