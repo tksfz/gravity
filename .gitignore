@@ -5,3 +5,4 @@ app/node_modules/
 demo/node_modules/
 app/assets/
 demo/assets/
+.idea/
