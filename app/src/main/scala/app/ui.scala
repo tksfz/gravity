@@ -6,7 +6,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless.ops.hlist.{Mapper, ToTraversable}
 
 
-object generator {
+object ui {
 
   trait HasLabels[T] {
     def label: String
@@ -15,7 +15,7 @@ object generator {
   }
 
   // P, S, B, N probably need to be pushed up
-  trait ComponentGenerator[T] {
+  trait View[T] {
     def view(t: T): Either[String, ReactElement]
     // def asString
     // def toReactElement
@@ -24,7 +24,7 @@ object generator {
     //def edit[P, S, B, N](t: T): ReactComponentU[P, S, B, N]
   }
 
-  implicit object StringComponentGenerator extends ComponentGenerator[String] {
+  implicit object StringView extends View[String] {
     def view(t: String) = Left(t)
   }
 
@@ -43,8 +43,8 @@ object generator {
   }
 
   object getGenerator extends DefaultForPoly {
-    implicit def hasGenerator[T : ComponentGenerator] = at[T].apply[Either[String, ReactElement]]({ x: T =>
-      implicitly[ComponentGenerator[T]].view(x)
+    implicit def hasGenerator[T : View] = at[T].apply[Either[String, ReactElement]]({ x: T =>
+      implicitly[View[T]].view(x)
     })
   }
 
@@ -52,7 +52,7 @@ object generator {
     (implicit l: Generic.Aux[T, L],
       mapped: Mapper.Aux[getGenerator.type, L, O],
       trav: ToTraversable.Aux[O, List, Either[String, ReactElement]]
-    ) = new ComponentGenerator[T] {
+    ) = new View[T] {
     def view(t: T): Either[String, ReactElement] = {
       val fieldGenerators: List[Either[String, ReactElement]] = (l.to(t) map getGenerator).toList
       val elems: Seq[ReactElement] = fieldGenerators map {

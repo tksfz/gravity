@@ -3,7 +3,7 @@ package app
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui.{MuiAppBar, MuiMuiThemeProvider, MuiTab, MuiTabs}
 import chandu0101.scalajs.react.components.Implicits._
-import generator._
+import ui._
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
@@ -16,7 +16,7 @@ import shapeless._
 
 object App extends JSApp {
 
-  private[this] def component[T](t: T)(implicit g: ComponentGenerator[T]) = {
+  private[this] def component[T](t: T)(implicit g: View[T]) = {
     val content: ReactElement = g.view(t) match {
       case Left(str) => <.div(str)
       case Right(elem) => elem
