@@ -100,8 +100,6 @@ object ui {
     def fieldLabel[F]
   } */
 
-  trait Label[T, F]
-
   implicit def fieldLabelGenerator[L <: Symbol]
     (implicit widen: Widen.Aux[L, Symbol]) = new View[L] {
     override def view(t: L): Either[String, ReactElement] = {
@@ -119,11 +117,11 @@ object ui {
     (implicit
       l: LabelledGeneric.Aux[T, L],
       zipConst: ZipConst.Aux[T, L, TL],
-      mapped: Mapper.Aux[fieldView2.type, TL, O],
+      mapped: Mapper.Aux[labelledFieldView2.type, TL, O],
       trav: ToTraversable.Aux[O, List, (StringOrElement, StringOrElement)]) = new View[T] {
     def view(t: T): Either[String, ReactElement] = {
       val fieldElems: List[(StringOrElement, StringOrElement)] =
-        ((l.to(t) zipConst t) map fieldView2).toList
+        ((l.to(t) zipConst t) map labelledFieldView2).toList
       val mui =
         ReactComponentB[Unit]("blah")
           .render(_ =>
@@ -149,6 +147,92 @@ object ui {
     }
   }
 
+  trait View2[T, A] {
+    def view(a: A): Either[String, ReactElement]
+  }
+
+  implicit def fieldLabelGenerator2[T, L <: Symbol]
+    (implicit widen: Widen.Aux[L, Symbol]) = new View2[T, L] {
+    override def view(t: L): Either[String, ReactElement] = {
+      Left(widen(t).name)
+      //Left(t.name)
+    }
+  }
+
+  // should we let clients define a Poly1[(T, A)]? to return labels? a record?
+
+  trait FieldView[T] {
+    def view[A]
+  }
+
+  //trait ClassKeyData[C, K, D]
+
+  case class LabelsData[T, L <: HList, R <: HList](labels: R)
+    (implicit
+      l: LabelledGeneric.Aux[T, L],
+      hasSameKeys: HasSameKeys[L, R]) {
+  }
+
+  object LabelsData {
+    class X[T] {
+      def apply[L <: HList, R <: HList](labels: R)
+        (implicit
+          l: LabelledGeneric.Aux[T, L],
+          hasSameKeys: HasSameKeys[L, R]) = {
+        LabelsData[T, L, R](labels)
+      }
+    }
+    def apply[T] = new X[T]
+  }
+
+  // Implement all these things over L a hlist or record
+  // instead of T
+  // This is kind of like a Lens in a way
+  // i need instances of T, F for every F in T based on a common record R
+  // maybe F should be pushed up just like for a Lens?
+  trait Label[T, F] {
+    def label: String
+  }
+
+  // where F is in L
+  // in fact we can even relax the restriction that F is in T/L
+  // we can fetch the labels for arbitrary F, under T with R
+  // so you can fetch labels for random things like
+  // Unit, or whatever
+  // Basically we have labels for T for arbitrary
+  // label types F
+  // and this is just a repository of labels related to T
+  // the fInL check is useful to enforce
+  // that the elements of R are drawn from L
+  implicit def fromLabelsData[T, L <: HList, F, R <: HList]
+    (implicit
+      l: LabelledGeneric.Aux[T, L],
+      //fInL: ops.record.Selector.Aux[L, F, _],
+      data: LabelsData[T, L, R],
+      fInRToo: ops.record.Selector.Aux[R, F, String]) = new Label[T, F] {
+    def label = fInRToo.apply(data.labels)
+  }
+
+  import shapeless._
+  import shapeless.syntax.singleton._
+
+  // allow a tuple syntax?
+  implicit val mylabelsData = LabelsData[Account].apply(
+    ('id ->> "Id") ::
+      ('name ->> "Name") ::
+      ('numEmployees ->> "Number of employees") ::
+      shapeless.HNil
+    )
+
+  // If we wanted a single-instance version of this we could do:
+  trait LabelsX[T, X <: HList] {
+    def label[F](implicit f: Selector[X, F]): String
+  }
+
+  // and then have an instance for [T, X] where X
+  // is the keys of R
+
+
   /**
     * Accepts T as a type parameter where T is the original case class containing the field K (with value V)
     * this allows us to potentially generate field labels for the field K knowing what T was.
@@ -167,14 +251,30 @@ object ui {
       }
   }
 
+  object labelledFieldView2 extends Poly1WithDefault((Left(""), Left(""))) {
+    implicit def when[T, K, V]
+      (implicit label: Label[T, K], kview: View[K], vview: View[V]) =
+      at[(FieldType[K, V], T)].apply { case (f, _) => labeledFieldView(f) }
+    /*
+    implicit def when[T, K, V](implicit witness: Witness.Aux[K], kview: View[K], vview: View[V]) =
+      at[(FieldType[K, V], T)].apply[(StringOrElement, StringOrElement)] { case (f, _) =>
+        fieldView(f)
+      } */
+  }
+
   object fieldViews extends Poly1WithDefault((Left(""), Left(""))) {
-    implicit def when[K, V]
-      (implicit
-        witness: Witness.Aux[K],
-        kview: View[K], vview: View[V]) =
+    implicit def when[K, V](implicit witness: Witness.Aux[K], kview: View[K], vview: View[V]) =
       at[FieldType[K, V]].apply[(StringOrElement, StringOrElement)] {
         fieldView(_)
       }
+  }
+
+  // maybe View should always be [C, K]
+  def labeledFieldView[T, K, V](f: FieldType[K, V])
+    (implicit
+      label: Label[T, K],
+      kview: View[K], vview: View[V]): (StringOrElement, StringOrElement) = {
+    (Left(label.label), vview.view(f))
   }
 
   // View[K] or View[W] where W is the Widen of K?
