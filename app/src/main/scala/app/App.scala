@@ -1,9 +1,9 @@
 package app
 
-import chandu0101.scalajs.react.components.WithAsyncScript
-import chandu0101.scalajs.react.components.materialui.{MuiAppBar, MuiMuiThemeProvider, MuiTab, MuiTabs}
-import chandu0101.scalajs.react.components.Implicits._
 import ui._
+import chandu0101.scalajs.react.components.WithAsyncScript
+import chandu0101.scalajs.react.components.materialui._
+import chandu0101.scalajs.react.components.Implicits._
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
@@ -31,7 +31,6 @@ object App extends JSApp {
           <.div(content)
         )
       )
-
     }
   }
 
