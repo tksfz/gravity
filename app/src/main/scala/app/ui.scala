@@ -100,6 +100,8 @@ object ui {
     def fieldLabel[F]
   } */
 
+  trait Label[T, F]
+
   implicit def fieldLabelGenerator[L <: Symbol]
     (implicit widen: Widen.Aux[L, Symbol]) = new View[L] {
     override def view(t: L): Either[String, ReactElement] = {
@@ -112,13 +114,16 @@ object ui {
 
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
-  implicit def makeTableView[T, L <: HList, O <: HList]
-  (implicit l: LabelledGeneric.Aux[T, L],
-    mapped: Mapper.Aux[getFieldGenerators.type, L, O],
-    trav: ToTraversable.Aux[O, List, (StringOrElement, StringOrElement)]
-   ) = new View[T] {
+  // i.e. returning ReactComponent here instead of ReactElement
+  implicit def makeTableView[T, L <: HList, TL <: HList, O <: HList]
+    (implicit
+      l: LabelledGeneric.Aux[T, L],
+      zipConst: ZipConst.Aux[T, L, TL],
+      mapped: Mapper.Aux[fieldView2.type, TL, O],
+      trav: ToTraversable.Aux[O, List, (StringOrElement, StringOrElement)]) = new View[T] {
     def view(t: T): Either[String, ReactElement] = {
-      val fieldElems: List[(StringOrElement, StringOrElement)] = (l.to(t) map getFieldGenerators).toList
+      val fieldElems: List[(StringOrElement, StringOrElement)] =
+        ((l.to(t) zipConst t) map fieldView2).toList
       val mui =
         ReactComponentB[Unit]("blah")
           .render(_ =>
@@ -144,14 +149,36 @@ object ui {
     }
   }
 
-  object getFieldGenerators extends Poly1WithDefault((Left(""), Left(""))) {
+  /**
+    * Accepts T as a type parameter where T is the original case class containing the field K (with value V)
+    * this allows us to potentially generate field labels for the field K knowing what T was.
+    *
+    * Note that a value of type T is also passed in through the at[] methods, but is unused.
+    * We should probably fix this up so that T is passed in on the left-hand side of the tuple.
+    * Or, we should make it so that a value of type T never needs to be passed in in the first place.
+    */
+  object fieldView2 extends Poly1WithDefault((Left(""), Left(""))) {
+    implicit def when[T, K, V]
+    (implicit
+      witness: Witness.Aux[K],
+      kview: View[K], vview: View[V]) =
+      at[(FieldType[K, V], T)].apply[(StringOrElement, StringOrElement)] { case (f, _) =>
+        fieldView(f)
+      }
+  }
+
+  object fieldViews extends Poly1WithDefault((Left(""), Left(""))) {
     implicit def when[K, V]
-      (implicit witness: Witness.Aux[K],
-        kview: View[K], vview: View[V]) = at[FieldType[K, V]].apply[(StringOrElement, StringOrElement)] { generateViewsForField(_) }
+      (implicit
+        witness: Witness.Aux[K],
+        kview: View[K], vview: View[V]) =
+      at[FieldType[K, V]].apply[(StringOrElement, StringOrElement)] {
+        fieldView(_)
+      }
   }
 
   // View[K] or View[W] where W is the Widen of K?
-  def generateViewsForField[K, V](f: FieldType[K, V])
+  def fieldView[K, V](f: FieldType[K, V])
     (implicit
       witness: Witness.Aux[K],
       kview: View[K], vview: View[V]): (StringOrElement, StringOrElement) = {
