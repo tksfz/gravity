@@ -3,8 +3,10 @@ package app
 import japgolly.scalajs.react.{ReactComponentB, ReactElement}
 import shapeless._
 import japgolly.scalajs.react.vdom.prefix_<^._
-import shapeless.ops.hlist.{Mapper, ToTraversable}
-
+import shapeless.ops.hlist._
+import chandu0101.scalajs.react.components.materialui._
+import shapeless.labelled.FieldType
+import shapeless.ops.record.{Fields, Keys, Values}
 
 object ui {
 
@@ -37,6 +39,10 @@ object ui {
   }
    */
 
+  abstract class Poly1WithDefault[V](defaultValue: V) extends Poly1 {
+    implicit def default[T] = at[T] { _ => defaultValue }
+  }
+
   // https://github.com/milessabin/shapeless/issues/73
   trait DefaultForPoly extends Poly1 {
     implicit def default[T] = at[T] { _ => Left("") }
@@ -48,7 +54,8 @@ object ui {
     })
   }
 
-  implicit def caseClassGenerator[T <: Product, L <: HList, O <: HList]
+  /*
+  implicit def caseClassGenerator[T, L <: HList, O <: HList]
     (implicit l: Generic.Aux[T, L],
       mapped: Mapper.Aux[getGenerator.type, L, O],
       trav: ToTraversable.Aux[O, List, Either[String, ReactElement]]
@@ -68,6 +75,86 @@ object ui {
         .build
       Right(rcb())
     }
+  } */
+
+
+  /*
+
+  trait Labels[T] {
+    type L <: HList
+
+    //def label: String
+    def fieldLabels: L
+
+    // where F is a field in the generic record representation of T
+    def fieldLabel[F]: String
   }
 
+  case class SomeLabels[T, GT, KGT, FieldsToLabels <: HList, KFTL](labels: FieldsToLabels)
+    (implicit generic: LabelledGeneric.Aux[T, GT],
+      kgt: Keys.Aux[GT, KGT],
+      kftl: Keys.Aux[FieldsToLabels, KFTL],
+      align: Align[KGT, KFTL]) extends Labels[T] {
+    type L = FieldsToLabels
+    def fieldLabels = labels
+    def fieldLabel[F]
+  } */
+
+  implicit def fieldLabelGenerator[L <: Symbol]
+    (implicit widen: Widen.Aux[L, Symbol]) = new View[L] {
+    override def view(t: L): Either[String, ReactElement] = {
+      Left(widen(t).name)
+      //Left(t.name)
+    }
+  }
+
+  type StringOrElement = Either[String, ReactElement]
+
+  // TODO: we should probably be creating components that accept models
+  // and somewhere higher-up the model gets passed in
+  implicit def makeTableView[T, L <: HList, O <: HList]
+  (implicit l: LabelledGeneric.Aux[T, L],
+    mapped: Mapper.Aux[getFieldGenerators.type, L, O],
+    trav: ToTraversable.Aux[O, List, (StringOrElement, StringOrElement)]
+   ) = new View[T] {
+    def view(t: T): Either[String, ReactElement] = {
+      val fieldElems: List[(StringOrElement, StringOrElement)] = (l.to(t) map getFieldGenerators).toList
+      val mui =
+        ReactComponentB[Unit]("blah")
+          .render(_ =>
+            MuiTable()(
+              MuiTableBody(displayRowCheckbox = false)(
+                fieldElems map { case (l, r) =>
+                  MuiTableRow()(
+                    l match {
+                      case Left(s) => MuiTableRowColumn()(s)
+                      case Right(e) => MuiTableRowColumn()(e)
+                    },
+                    r match {
+                      case Left(s) => MuiTableRowColumn()(s)
+                      case Right(e) => MuiTableRowColumn()(e)
+                    }
+                  )
+                }
+              )
+            )
+          )
+          .build
+      Right(mui())
+    }
+  }
+
+  object getFieldGenerators extends Poly1WithDefault((Left(""), Left(""))) {
+    implicit def when[K, V]
+      (implicit witness: Witness.Aux[K],
+        kview: View[K], vview: View[V]) = at[FieldType[K, V]].apply[(StringOrElement, StringOrElement)] { generateViewsForField(_) }
+  }
+
+  // View[K] or View[W] where W is the Widen of K?
+  def generateViewsForField[K, V](f: FieldType[K, V])
+    (implicit
+      witness: Witness.Aux[K],
+      kview: View[K], vview: View[V]): (StringOrElement, StringOrElement) = {
+    (kview.view(witness.value), vview.view(f))
+  }
 }
