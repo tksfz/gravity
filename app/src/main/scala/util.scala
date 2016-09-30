@@ -1,3 +1,5 @@
+package app
+
 import shapeless._
 import shapeless.labelled._
 import shapeless.ops.hlist.Align
