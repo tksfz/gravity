@@ -1,5 +1,6 @@
 package app
 
+import app.models.Account
 import ui._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._

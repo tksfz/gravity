@@ -30,6 +30,10 @@ object ui {
     def view(t: String) = Left(t)
   }
 
+  implicit object IntView extends View[Int] {
+    def view(n: Int) = Left(n.toString)
+  }
+
   /*
   trait Renderable {
   def toString: String // for use in attributes
@@ -39,66 +43,16 @@ object ui {
   }
    */
 
+  // https://github.com/milessabin/shapeless/issues/73
   abstract class Poly1WithDefault[V](defaultValue: V) extends Poly1 {
     implicit def default[T] = at[T] { _ => defaultValue }
   }
 
-  // https://github.com/milessabin/shapeless/issues/73
-  trait DefaultForPoly extends Poly1 {
-    implicit def default[T] = at[T] { _ => Left("") }
-  }
-
-  object getGenerator extends DefaultForPoly {
+  object getGenerator extends Poly1WithDefault(Left("")) {
     implicit def hasGenerator[T : View] = at[T].apply[Either[String, ReactElement]]({ x: T =>
       implicitly[View[T]].view(x)
     })
   }
-
-  /*
-  implicit def caseClassGenerator[T, L <: HList, O <: HList]
-    (implicit l: Generic.Aux[T, L],
-      mapped: Mapper.Aux[getGenerator.type, L, O],
-      trav: ToTraversable.Aux[O, List, Either[String, ReactElement]]
-    ) = new View[T] {
-    def view(t: T): Either[String, ReactElement] = {
-      val fieldGenerators: List[Either[String, ReactElement]] = (l.to(t) map getGenerator).toList
-      val elems: Seq[ReactElement] = fieldGenerators map {
-        case Left(str) => <.div(str).render
-        case Right(elem) => elem
-      }
-      val rcb = ReactComponentB[Unit]("rcb")
-        .render(P =>
-          <.div(
-            elems
-          )
-        )
-        .build
-      Right(rcb())
-    }
-  } */
-
-
-  /*
-
-  trait Labels[T] {
-    type L <: HList
-
-    //def label: String
-    def fieldLabels: L
-
-    // where F is a field in the generic record representation of T
-    def fieldLabel[F]: String
-  }
-
-  case class SomeLabels[T, GT, KGT, FieldsToLabels <: HList, KFTL](labels: FieldsToLabels)
-    (implicit generic: LabelledGeneric.Aux[T, GT],
-      kgt: Keys.Aux[GT, KGT],
-      kftl: Keys.Aux[FieldsToLabels, KFTL],
-      align: Align[KGT, KFTL]) extends Labels[T] {
-    type L = FieldsToLabels
-    def fieldLabels = labels
-    def fieldLabel[F]
-  } */
 
   implicit def fieldLabelGenerator[L <: Symbol]
     (implicit widen: Widen.Aux[L, Symbol]) = new View[L] {
@@ -216,22 +170,8 @@ object ui {
   import shapeless._
   import shapeless.syntax.singleton._
 
-  // allow a tuple syntax?
-  implicit val mylabelsData = LabelsData[Account].apply(
-    ('id ->> "Id") ::
-      ('name ->> "Name") ::
-      ('numEmployees ->> "Number of employees") ::
-      shapeless.HNil
-    )
-
-  // If we wanted a single-instance version of this we could do:
-  trait LabelsX[T, X <: HList] {
-    def label[F](implicit f: Selector[X, F]): String
-  }
-
   // and then have an instance for [T, X] where X
   // is the keys of R
-
 
   /**
     * Accepts T as a type parameter where T is the original case class containing the field K (with value V)
