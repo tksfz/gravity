@@ -6,6 +6,7 @@ import shapeless._
 import shapeless.labelled._
 import shapeless.ops.record.Selector
 import shapeless.syntax.singleton._
+import shapeless.tag.@@
 
 object ctd {
 
@@ -31,6 +32,15 @@ object ctd {
     */
   trait Label[C, S /*<: Symbol*/] extends ContextFunction[C, S, String]
 
+  /**
+    * Is it really useful for View to be a ContextFunction and accept C as a type parameter?
+    *
+    * It seems like it should be sufficient for FieldView to be a context function.
+    * FieldView rather than delegating to kview, fetches the Label directly and generates the ReactNode
+    * *by default*.  FieldView can still be overridden to provide a custom label element when desired.
+    * @tparam C
+    * @tparam T
+    */
   trait View[C, T] extends ContextFunction[C, T, ReactNode] {
     // of course here we could have a asString method etc.
   }
@@ -103,7 +113,7 @@ object ctd {
   }
 
 
-  class ClassLabels[C, R <: HList](data: R) extends ClassMap[C, R](data)
+  class ClassLabels[C, R <: HList](data: R) extends ContextMap[C, R](data)
   object ClassLabels {
     def apply[C] = new Curried[C]
     class Curried[C] {
@@ -138,10 +148,14 @@ object ctd {
 
   }*/
 
-  abstract class ClassMap[C, M <: HList](val map: M)
+  trait ContextMap[C, M <: HList] {
+    def map: M
+  }
 
-  implicit def classFunctionFromMap[C, M <: HList, K, V]
-  (implicit map: ClassMap[C, M],
+  abstract class ContextMap[C, M <: HList](val map: M)
+
+  implicit def contextFunctionFromMap[C, M <: HList, K, V]
+  (implicit map: ContextMap[C, M],
     s: ops.record.Selector.Aux[M, K, V]) = new ContextFunction[C, K, V] {
     override def apply(t: K): V = s.apply(map.map)
   }
