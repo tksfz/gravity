@@ -1,12 +1,10 @@
 import app.HasSameKeys
 import app.models.Account
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.vdom.Frag
 import shapeless._
 import shapeless.labelled._
 import shapeless.ops.record.Selector
 import shapeless.syntax.singleton._
-import shapeless.tag.@@
 
 object ctd {
 
@@ -105,13 +103,13 @@ object ctd {
 
   // If we want to hide the [S] bit from app devs
   // we could add another level of implicits
+  /*
   implicit def accountLabels[S, R <: HList]
   (implicit s: ops.record.Selector.Aux[R, S, String]) = labelsFromRecord3[Account, S, R].apply {
     ('id ->> "Id") ::
       ('name ->> "Name") ::
       ('numEmployees ->> "Number of employees") :: HNil
   }
-
 
   class ClassLabels[C, R <: HList](data: R) extends ContextMap[C, R](data)
   object ClassLabels {
@@ -128,7 +126,7 @@ object ctd {
   ) = new Label[C, F] {
     override def apply(t: F): String = f.apply(cl.map)
   }
-
+*/
   trait IsFieldOf[T, F]
 
   object IsFieldOf {
@@ -148,6 +146,7 @@ object ctd {
 
   }*/
 
+  /*
   trait ContextMap[C, M <: HList] {
     def map: M
   }
@@ -158,6 +157,6 @@ object ctd {
   (implicit map: ContextMap[C, M],
     s: ops.record.Selector.Aux[M, K, V]) = new ContextFunction[C, K, V] {
     override def apply(t: K): V = s.apply(map.map)
-  }
+  } */
 
 }
