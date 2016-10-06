@@ -1,7 +1,7 @@
 package app
 
 import app.models.Account
-import ui._
+import view2._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._
@@ -18,10 +18,7 @@ import shapeless._
 object App extends JSApp {
 
   private[this] def component[T](t: T)(implicit g: View[T]) = {
-    val content: ReactElement = g.view(t) match {
-      case Left(str) => <.div(str)
-      case Right(elem) => elem
-    }
+    val content: ReactNode = g.view(t)
     WithAsyncScript("assets/material_ui-bundle.js") {
       MuiMuiThemeProvider()(
         <.div(

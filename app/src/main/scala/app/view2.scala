@@ -1,3 +1,5 @@
+package app
+
 import app.HasSameKeys
 import app.models.Account
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
@@ -11,71 +13,45 @@ import shapeless.tag.@@
 
 object view2 {
 
-  // Note that our treat of context types C
-  // can leave them not tightly bound to the records
-  // such that we could support placeholder (empty) types C
-  // that are just used as containers for record keys
-  // to guide implicit selection to appropriate metadata for that record
-
-  trait View[T] {
+  // maybe this be renamed to FieldView
+  trait View[-T] {
     def view(t: T): ReactNode
-    // def shortView for links to foreign keys
+    // def asField or fieldView for links to foreign keys
   }
 
-  // Do we want C here?
+  // TODO: Detail[T]?
+  // Actually for a case class C, View[C] is the detail view
+  // while View[FieldType[?, C] @@ D] is the field view
+  // well we should have a foreign key type e.g. One[C] anyway
+
   /**
-    * Labels for a field of a case class C are tagged as `F @@ C`.  Is that a reliable way of doing things?
-    * What if the fields get splatted into a hlist.  Maybe we can keep information about C with them
-    * everywhere?
-    *
-    * The downside of this approach is that records are by design divorced from C.
-    * We no longer have a record that's.. hmm
-    *
+    * For a field, `T` is of the form `FieldType[K, V] @@ C == V with KeyTag[K, V] with Tagged[C]` where C is
+    * the case class from which a record is derived containing field K with value V.  This allows us to define
+    * low-priority default implicits for T's based on K, V, or C alone or in some combination GIVEN THAT
+    * we have contravariant View[-T] http://stackoverflow.com/questions/6682824/how-can-i-combine-the-typeclass-pattern-with-subtyping
     * @tparam T
     */
   trait Label[T] {
     def label: String
   }
 
-  // where is fieldview used
-  trait FieldView[C, K, V] {
-    def view(v: FieldType[K, V]): (ReactNode, ReactNode)
-  }
-
   // come up with a better name than Label
+  // FieldHeader or FieldLabel? header is fine actually.  it doesn't have to be just a field header
+  // e.g. it could be a tab header
   trait Header[T] {
     def header: ReactNode
   }
 
-  // whether we really want to break this out into its own typeclass is questionable
-  // it's really just a detail of how makeTableView is implemented
-  trait FieldView2[T] {
-    def view(t: T): (ReactNode, ReactNode)
+  implicit def stringView = new View[String] {
+    override def view(t: String): ReactNode = t
   }
 
-  // Depending on whether we have Label[C, T] or Label[T] we may or may not
-  // need [C, T] here
-  implicit def viewFromLabel[C, T](implicit label: Label[T]) = new View[T] {
-    def view(t: T): ReactNode = label.label
+  implicit object IntView extends View[Int] {
+    def view(n: Int) = n.toString
   }
 
   implicit def headerFromLabel[T](implicit label: Label[T]) = new Header[T] {
     override def header: ReactNode = label.label
-  }
-
-  implicit def fieldView2[T](implicit header: Header[T], v: View[T]) = new FieldView2[T] {
-    override def view(t: T): (ReactNode, ReactNode) = (header.header, v.view(t))
-  }
-
-  // should we tag V @@ C?
-  implicit def fieldView[C, K, V]
-  (implicit
-    k: Witness.Aux[K],
-    kview: View[K @@ C], // this is important
-    vview: View[V]) = new FieldView[C, K, V] {
-    override def view(v: FieldType[K, V]): (ReactNode, ReactNode) = {
-      (kview.view(tag[C](k.value)), vview.view(v))
-    }
   }
 
   case class LabelsData[T, L <: HList, R <: HList](labels: R)
@@ -128,11 +104,11 @@ object view2 {
   (implicit
     l: LabelledGeneric.Aux[T, L],
     tagger: Tagger.Aux[T, L, TL],
-    mapper: Mapper.Aux[lift.type, TL, O],
+    mapper: Mapper.Aux[headerAndView.type, TL, O],
     trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]) = new View[T] {
-    def view(t: T): Either[String, ReactElement] = {
+    def view(t: T): ReactNode = {
       val fieldElems: List[(ReactNode, ReactNode)] =
-        (tagger.apply(l.to(t)) map lift).toList
+        (tagger.apply(l.to(t)) map headerAndView).toList
       val mui =
         ReactComponentB[Unit]("blah")
           .render(_ =>
@@ -140,48 +116,21 @@ object view2 {
               MuiTableBody(displayRowCheckbox = false)(
                 fieldElems map { case (l, r) =>
                   MuiTableRow()(
-                    l match {
-                      case Left(s) => MuiTableRowColumn()(s)
-                      case Right(e) => MuiTableRowColumn()(e)
-                    },
-                    r match {
-                      case Left(s) => MuiTableRowColumn()(s)
-                      case Right(e) => MuiTableRowColumn()(e)
-                    }
+                    MuiTableRowColumn()(l),
+                    MuiTableRowColumn()(r)
                   )
                 }
               )
             )
           )
           .build
-      Right(mui())
+      mui()
     }
   }
 
-  object lift extends Poly1 {
-    implicit def asdf[K, V, C]
-    (implicit fv: FieldView[C, K, V]) = at[FieldType[K, V] @@ C] { fv.view(_) }
-
-    // OR
-    // and rename Label to DisplayLabe
-    // make Label[T] actually return a ReactNode?
-    // LabelView
-    // but often we need labels without values
-    // so in those cases we need
-    // but even in those cases we can have the type of the value
-    // and make Label[T] usually take values as its parameter? e.g. FieldType[K, V] @@ C?
-    implicit def blah[K, V, C]
-    (implicit
-      witness: Witness.Aux[K],
-      kview: View[K @@ C],
-      vview: View[FieldType[K, V] @@ C] // instead of View[V] we could do View[FieldType[K, V] @@ C] // note that FieldType[K, V] @@ C extends V
-      // so the View[FieldType[K, V] @@ C] might actually be able to pick up a View[V] instance
-      // maybe ineed a + on View[+V]?
-    ) = at[FieldType[K, V] @@ C] { v =>
-      (kview.view(tag[C](witness.value)), vview.view(v))
-    }
-
-    implicit def blah2[T]
+  // TODO: add a default so some fields can be skipped
+  object headerAndView extends Poly1 {
+    implicit def headerAndView[T]
     (implicit
       header: Header[T], view: View[T]) = at[T] { t =>
       (header.header, view.view(t))
@@ -189,35 +138,7 @@ object view2 {
 
   }
 
-  case class Labels[C, R <: HList](r: R)
-
   import shapeless.tag._
-
-  type TaggedWithX[X] = { type Lambda[T] = T @@ X }
-
-  // we can produce FieldType[K, V] @@ C
-  // or maybe even FieldType[K @@ C, V]?
-  /*
-  private[this] def tagFields[C, L <: HList, R <: HList](l: L)
-  (implicit
-    gen: LabelledGeneric.Aux[C, L],
-    //mapped: Mapped.Aux[L, TaggedWithX[C]#Lambda, R],
-    zip: ZipConst.Aux[C, L, R],
-    mapper: Mapper.Aux[tagger.type, L, R]): R = {
-    (l zipConst null.asInstanceOf[C]) map tagger
-  } */
-
-  object tagger extends Poly2 {
-    implicit def asdf[T, C] = at[T, C] { (x, _) => tag[C](x) }
-  }
-
-  private[this] def tagFields2[C, L <: HList, R <: HList](l: L)
-    (implicit
-      gen: LabelledGeneric.Aux[C, L],
-      tagger: Tagger.Aux[C, L, R]): R = {
-    //(l zipConst null.asInstanceOf[C]) map tagger
-    tagger.apply(l)
-  }
 
   /**
     * Type class supporting mapping a higher ranked function over this `HList`.
