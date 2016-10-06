@@ -127,24 +127,6 @@ object ctd {
     override def apply(t: F): String = f.apply(cl.map)
   }
 */
-  trait IsFieldOf[T, F]
-
-  object IsFieldOf {
-    type Aux[T] = { type Lambda[F] = IsFieldOf[T, F] }
-  }
-
-  implicit def isFieldOf[T, L, F]
-  (implicit
-    l: LabelledGeneric.Aux[T, L],
-    f: ops.record.Selector[L, F]) = new IsFieldOf[T, F] { }
-
-  /*
-  implicit def label[C, F]
-  (implicit
-
-  ) = new Label[C, F] {
-
-  }*/
 
   /*
   trait ContextMap[C, M <: HList] {
