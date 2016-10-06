@@ -32,6 +32,9 @@ object App extends JSApp {
     }
   }
 
+  // top level schema with
+  // Many[Account] :: Many[Contact]
+  // or case class Schema(accounts: Many[Account], contacts: Many[Contact]) etc.
   override def main(): Unit = {
     // remove waiting page stuff
     if (!js.isUndefined(g.loadingElement)) {

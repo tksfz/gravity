@@ -29,6 +29,8 @@ object view2 {
     * the case class from which a record is derived containing field K with value V.  This allows us to define
     * low-priority default implicits for T's based on K, V, or C alone or in some combination GIVEN THAT
     * we have contravariant View[-T] http://stackoverflow.com/questions/6682824/how-can-i-combine-the-typeclass-pattern-with-subtyping
+    *
+    * "Label" is too broad here.  Really, these are always labels of a noun Thing.  E.g. we should add plural label here
     * @tparam T
     */
   trait Label[T] {
@@ -42,7 +44,7 @@ object view2 {
     def header: ReactNode
   }
 
-  implicit def stringView = new View[String] {
+  implicit object StringView extends View[String] {
     override def view(t: String): ReactNode = t
   }
 
@@ -59,6 +61,7 @@ object view2 {
 
   // SelectMany might be better here
   // to traversable String
+  // TODO: how do we add the label for T itself here?
   case class Labels[T, L <: HList, R <: HList](labels: R)
     (implicit
       l: LabelledGeneric.Aux[T, L],
