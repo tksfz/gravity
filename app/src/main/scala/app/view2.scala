@@ -54,45 +54,41 @@ object view2 {
     override def header: ReactNode = label.label
   }
 
-  case class LabelsData[T, L <: HList, R <: HList](labels: R)
+  // Or rename to MetaMap or MetadataMap
+  abstract class Metadata[C, M <: HList](val map: M)
+
+  // SelectMany might be better here
+  // to traversable String
+  case class Labels[T, L <: HList, R <: HList](labels: R)
     (implicit
       l: LabelledGeneric.Aux[T, L],
-      hasSameKeys: HasSameKeys[L, R]) {
-  }
+      hasSameKeys: HasSameKeys[L, R]) extends Metadata[T, R](labels)
 
-  object LabelsData {
-    class X[T] {
+
+  object Labels {
+    class Curried[T] {
       def apply[L <: HList, R <: HList](labels: R)
         (implicit
           l: LabelledGeneric.Aux[T, L],
           hasSameKeys: HasSameKeys[L, R]) = {
-        LabelsData[T, L, R](labels)
+        Labels[T, L, R](labels)
       }
     }
-    def apply[T] = new X[T]
+    def apply[T] = new Curried[T]
   }
 
-  implicit def fromLabelsData[T, L <: HList, F, R <: HList]
-  (implicit
-    l: LabelledGeneric.Aux[T, L],
-    //fInL: ops.record.Selector.Aux[L, F, _],
-    data: LabelsData[T, L, R],
-    fInRToo: ops.record.Selector.Aux[R, F, String]) = new Label[F @@ T] {
-    def label = fInRToo.apply(data.labels)
-  }
-
-  implicit val mylabelsData = LabelsData[Account].apply(
+  implicit val mylabelsData = Labels[Account](
     ('id ->> "Id") ::
       ('name ->> "Name") ::
       ('numEmployees ->> "Number of employees") ::
       HNil
   )
 
-  implicit def fromLabelsData2[T, L <: HList, F, V, R <: HList]
+  implicit def fromLabelsData[T, L <: HList, F, V, R <: HList]
   (implicit
     l: LabelledGeneric.Aux[T, L],
     fInL: ops.record.Selector.Aux[L, F, V],
-    data: LabelsData[T, L, R],
+    data: Labels[T, L, R],
     fInRToo: ops.record.Selector.Aux[R, F, String]) = new Label[FieldType[F, V] @@ T] {
     def label = fInRToo.apply(data.labels)
   }
