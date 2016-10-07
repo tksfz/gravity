@@ -1,6 +1,6 @@
 package app
 
-import gravity.view2._
+import gravity.ui._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._

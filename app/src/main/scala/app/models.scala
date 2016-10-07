@@ -1,7 +1,7 @@
 package app
 
 import shapeless.syntax.singleton._
-import gravity.view2.Labels
+import gravity.ui.Labels
 
 object models {
   case class Account(

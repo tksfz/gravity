@@ -7,7 +7,7 @@ import shapeless.labelled._
 import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
 
-object view2 {
+object ui {
 
   /**
     * Some questions to think about:
