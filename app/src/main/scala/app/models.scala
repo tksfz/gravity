@@ -18,6 +18,12 @@ object models {
       shapeless.HNil
   )
 
+  trait Reference[T] {
+    def map[B](f: T => B): B
+  }
+  trait One[T] extends Reference[T]
+  //case class Unresolved[T](id: Int) extends One[T]
+
 }
 
 
