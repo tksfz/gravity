@@ -1,14 +1,10 @@
-package app
+package gravity
 
-import app.HasSameKeys
-import app.models.Account
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
-import japgolly.scalajs.react.{ReactComponentB, ReactElement, ReactNode}
-import shapeless.PolyDefns.~>
+import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import shapeless._
 import shapeless.labelled._
-import shapeless.ops.hlist.{LiftAll, Mapped, Mapper, ToTraversable, ZipConst}
-import shapeless.syntax.singleton._
+import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
 
 object view2 {
@@ -107,13 +103,6 @@ def toReactElement: ReactElement
     }
     def apply[T] = new Curried[T]
   }
-
-  implicit val mylabelsData = Labels[Account](
-    ('id ->> "Id") ::
-      ('name ->> "Name") ::
-      ('numEmployees ->> "Number of employees") ::
-      HNil
-  )
 
   implicit def fromLabelsData[T, L <: HList, F, V, R <: HList]
   (implicit

@@ -1,10 +1,10 @@
-package app
+package gravity
 
 import shapeless._
 import shapeless.labelled._
 import shapeless.ops.hlist.Align
-import shapeless.syntax.singleton._
 import shapeless.ops.record.{Keys, Remover}
+import shapeless.syntax.singleton._
 
 object util {
 
@@ -56,8 +56,6 @@ object HasSameKeys {
 
   }
 }
-
-import shapeless.syntax._
 
 object main {
   case class Book(author: String, title: String, quantity: Int)

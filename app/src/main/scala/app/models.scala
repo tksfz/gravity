@@ -1,7 +1,7 @@
 package app
 
 import shapeless.syntax.singleton._
-import view2.Labels
+import gravity.view2.Labels
 
 object models {
   case class Account(
@@ -17,7 +17,6 @@ object models {
       ('numEmployees ->> "Number of employees") ::
       shapeless.HNil
   )
-
 
 }
 
