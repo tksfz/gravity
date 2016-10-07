@@ -1,7 +1,7 @@
 package app
 
-import app.ui.LabelsData
 import shapeless.syntax.singleton._
+import view2.Labels
 
 object models {
   case class Account(
@@ -11,7 +11,7 @@ object models {
   )
 
   // allow a tuple syntax?
-  implicit val mylabelsData = LabelsData[Account].apply(
+  implicit val mylabelsData = Labels[Account].apply(
     ('id ->> "Id") ::
       ('name ->> "Name") ::
       ('numEmployees ->> "Number of employees") ::

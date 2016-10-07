@@ -8,6 +8,11 @@ import shapeless.ops.record.{Keys, Remover}
 
 object util {
 
+  // https://github.com/milessabin/shapeless/issues/73
+  abstract class Poly1WithDefault[V](defaultValue: V) extends Poly1 {
+    implicit def default[T] = at[T] { _ => defaultValue }
+  }
+
   def zipByKey[T, G <: HList, R <: HList, O <: HList](t: T, r: R)
     (implicit generic: LabelledGeneric.Aux[T, G],
       zipByKey: ZipByKey.Aux[G, R, O]): O = {
