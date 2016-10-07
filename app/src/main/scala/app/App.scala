@@ -1,7 +1,6 @@
 package app
 
-import app.models.Account
-import view2._
+import gravity.ui._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._
@@ -14,6 +13,7 @@ import scala.scalajs.js
 import scala.scalajs.js.Dynamic.{global => g}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
+import models._
 
 object App extends JSApp {
 

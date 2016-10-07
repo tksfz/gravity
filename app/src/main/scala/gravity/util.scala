@@ -1,12 +1,17 @@
-package app
+package gravity
 
 import shapeless._
 import shapeless.labelled._
 import shapeless.ops.hlist.Align
-import shapeless.syntax.singleton._
 import shapeless.ops.record.{Keys, Remover}
+import shapeless.syntax.singleton._
 
 object util {
+
+  // https://github.com/milessabin/shapeless/issues/73
+  abstract class Poly1WithDefault[V](defaultValue: V) extends Poly1 {
+    implicit def default[T] = at[T] { _ => defaultValue }
+  }
 
   def zipByKey[T, G <: HList, R <: HList, O <: HList](t: T, r: R)
     (implicit generic: LabelledGeneric.Aux[T, G],
@@ -51,8 +56,6 @@ object HasSameKeys {
 
   }
 }
-
-import shapeless.syntax._
 
 object main {
   case class Book(author: String, title: String, quantity: Int)

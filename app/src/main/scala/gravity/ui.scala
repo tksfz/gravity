@@ -1,23 +1,47 @@
-package app
+package gravity
 
-import app.HasSameKeys
-import app.models.Account
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
-import japgolly.scalajs.react.{ReactComponentB, ReactElement, ReactNode}
-import shapeless.PolyDefns.~>
+import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import shapeless._
 import shapeless.labelled._
-import shapeless.ops.hlist.{LiftAll, Mapped, Mapper, ToTraversable, ZipConst}
-import shapeless.syntax.singleton._
+import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
 
-object view2 {
+object ui {
 
-  // maybe this be renamed to FieldView
+  /**
+    * Some questions to think about:
+    * How do we handle, say at the data model level, foreign key lookups and displaying the name of the reference?
+    *   (1) One[T] can resolve to a name - how do we represent that?
+    *   (2) do we have some kind of name_denorm system?
+    *   (3) How does the View reach back to the query and say:  I want this data?
+    *
+    *   The answer to (3) is it doesn't.  The data drives the view, not the other way around.
+    *   Maybe as a convenience there's a consolidated way to derive a Query from a View.
+    *
+    *   For (1) we need a sophistcated system of "model derivation" or "model transformation":
+    *
+    *   Starting with one model, transform it into another by adding fields, changing data types, etc.
+    * @tparam T
+    */
   trait View[-T] {
     def view(t: T): ReactNode
-    // def asField or fieldView for links to foreign keys
+    // def header?
+    // def asString
+    // def toReactElement
+    // def inTable etc.
+    // def withField
+    //def edit[P, S, B, N](t: T): ReactComponentU[P, S, B, N]
   }
+
+  /*
+trait Renderable {
+def toString: String // for use in attributes
+def toReactElement: ReactElement
+// also could have options in lists
+// detail views, list views
+}
+ */
 
   // TODO: Detail[T]?
   // Actually for a case class C, View[C] is the detail view
@@ -80,13 +104,6 @@ object view2 {
     def apply[T] = new Curried[T]
   }
 
-  implicit val mylabelsData = Labels[Account](
-    ('id ->> "Id") ::
-      ('name ->> "Name") ::
-      ('numEmployees ->> "Number of employees") ::
-      HNil
-  )
-
   implicit def fromLabelsData[T, L <: HList, F, V, R <: HList]
   (implicit
     l: LabelledGeneric.Aux[T, L],
@@ -127,7 +144,7 @@ object view2 {
     }
   }
 
-  // TODO: add a default so some fields can be skipped
+  // TODO: add a default so some fields can be skipped.  use Poly1WithDefault
   object headerAndView extends Poly1 {
     implicit def headerAndView[T]
     (implicit
