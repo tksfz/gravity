@@ -19,9 +19,10 @@ object models {
   )
 
   trait Reference[T] {
-    def map[B](f: T => B): B
   }
-  trait One[T] extends Reference[T]
+  trait One[T] extends Reference[T] {
+    def map[B](f: T => B): One[B]
+  }
   //case class Unresolved[T](id: Int) extends One[T]
 
 }

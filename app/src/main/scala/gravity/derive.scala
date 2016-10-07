@@ -82,7 +82,7 @@ object derive {
 
   def doLogin[R](r: R)(implicit ev: R =:= loginModel.Out) = {
     //ev(r).fieldAt('id)
-    ev(r).fieldAt('username)
+    ev(r)('username)
   }
 
   implicit class MoreRecordOps[R <: HList](r: R) {
@@ -96,6 +96,7 @@ object derive {
     // Does a replaceWith for a reference
     // Take a reference such as One[T] and convert it to Y?
     def resolve[W <: Witness, X, Y](w: W)(f: X => Y)
-      (implicit modify: Modifier[R, w.T, One[X], Y]) = modify(r, { (ox: One[X]) => ox.map(f) })
+      (implicit modifier: Modifier[R, w.T, One[X], One[Y]]) = modifier(r, { (ox: One[X]) => ox.map(f) })
+    // What does updateWith do?
   }
 }
