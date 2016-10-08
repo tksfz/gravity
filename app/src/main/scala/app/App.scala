@@ -44,7 +44,8 @@ object App extends JSApp {
       dom.document.body.className += " pg-loaded"
     }
     AppCSS.load()
-    val comp = component(Account(3, "John Smith", 4))
+    //val comp = component(Account(3, "John Smith", 4))
+    val comp = component(Contact("Mary", "Johnson"))
     ReactDOM.render(comp, dom.document.getElementById("container"))
   }
 }

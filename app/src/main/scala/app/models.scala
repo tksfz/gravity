@@ -26,6 +26,11 @@ object models {
     def fullName = firstName + lastName
   }
 
+  implicit val contactLabels = Labels[Contact].apply(
+      ('firstName ->> "First Name") ::
+      ('lastName ->> "Last Name") ::
+      shapeless.HNil
+  )
   // can be attached to any record with the appropriate fields
   // tagged with Contact
   object defFullName extends Poly1 {
