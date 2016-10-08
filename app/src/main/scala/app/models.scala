@@ -1,6 +1,6 @@
 package app
 
-import gravity.methods.Compute
+import gravity.methods.{Method, Method$}
 import shapeless.syntax.singleton._
 import gravity.ui.Labels
 import shapeless.ops.record.Selector
@@ -46,7 +46,7 @@ object models {
   def execute[L <: HList, HF <: Poly](l: L, w: Witness)
     (implicit
       select: Selector.Aux[L, w.T, HF],
-      compute: Compute[HF, L]) = {
+      compute: Method[HF, L]) = {
     compute(l)
   }
 

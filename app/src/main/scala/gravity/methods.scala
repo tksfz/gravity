@@ -8,39 +8,44 @@ import shapeless.record._
 import poly._
 
 
-// record defs
+/**
+  * Methods for records. These are encoded as polymorphic functions as record values.
+  */
 object methods {
 
   // adding a monomorphic function doesn't work because our record may change
   // thing may be added after the function is added
 
-  trait Compute[HF <: Poly, In <: HList] extends DepFn1[In] with Serializable { type Out }
+  trait Method[HF <: Poly, In <: HList] extends DepFn1[In] with Serializable { type Out }
 
   // note there's a case1.aux
-  object Compute {
-    implicit def computer[HF <: Poly, In <: HList]
-    (implicit hc: Case1[HF, In]) = new Compute[HF, In] {
+  object Method {
+    type Aux[HF <: Poly, In <: HList, Out0] = Method[HF, In] { type Out = Out0 }
+
+    implicit def method[HF <: Poly, In <: HList](implicit hc: Case1[HF, In]): Aux[HF, In, hc.Result] = new Method[HF, In] {
       type Out = hc.Result
       def apply(l: In) = hc(l)
     }
   }
 
+  /**
+    * Get a field or invoke a method.  Uniform access principle.
+    */
   // abstracts over simple Select and Compute apply
-  /*
-  trait Execute[L <: HList, K, V] extends DepFn1[L] { type Out = V }
-  object Execute {
-    implicit def executeBySelect[L, K, V](implicit sel: Selector.Aux[L, K, V]) = new Execute[L, K, V] {
+  trait Access[L <: HList, K, V] extends DepFn1[L] { type Out = V }
+  object Access {
+    implicit def accessSelect[L <: HList, K, V](implicit sel: Selector.Aux[L, K, V]) = new Access[L, K, V] {
       def apply(l: L) = sel(l)
     }
 
-    // need a compute.aux
-    implicit def executeByCompute[L, K, HF, V]
-    (implicit sel: Selector.Aux[L, K, HF],
-      compute: Compute[HF, L]) = new Execute[L, K, V] {
-      def apply(l: L) = compute(l)
+    implicit def accessMethod[L <: HList, K, HF <: Poly, V]
+    (implicit
+      sel: Selector.Aux[L, K, HF],
+      method: Method.Aux[HF, L, V]) = new Access[L, K, V] {
+      def apply(l: L) = method(l)
     }
-  } */
+  }
 
-  def compute[L <: HList](l: L, f: Poly)(implicit compute: Compute[f.type, L]) = compute.apply(l)
+  def invoke[L <: HList](l: L, f: Poly)(implicit invoke: Method[f.type, L]) = invoke.apply(l)
 
 }
