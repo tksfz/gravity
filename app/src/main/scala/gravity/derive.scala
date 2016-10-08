@@ -2,7 +2,7 @@ package gravity
 
 import app.models.One
 import shapeless._
-import shapeless.ops.record.{Modifier, Remove, Remover, SelectAll}
+import shapeless.ops.record._
 
 object derive {
 
@@ -54,9 +54,12 @@ object derive {
     *
     * The output type can then be extracted as derived.Out.
     *
-    * You can think of this as "shape-changing".  Functions that do stuff at value-level aren't
+    * You can think of this as "shape-changing" (morph?).  Functions that do stuff at value-level aren't
     * meaningful here.  We only care about stuff that changes the shape of the type:  removals, adds, selections,
     * type changes, nesting, unnesting, duplications, possibly other transformations.
+    *
+    * We may not need this exactly if the data type is derived from a set of queries and then stuffed into a model.
+    * And the page just operates over that model.
     */
   class Derive[A, L <: HList, B](fn: L => B)
     (implicit l: LabelledGeneric.Aux[A, L]) {
@@ -70,7 +73,7 @@ object derive {
 
     class Curried[T] {
       // Force determination of L prior to receiving fn, so that the type of fn's argument can be inferred (rather than
-      // having to be specified explicitly
+      // having to be specified explicitly)
       def apply[L <: HList](implicit l: LabelledGeneric.Aux[T, L]) = new Curried2[T, L]
     }
     def apply[T] = new Curried[T]
@@ -99,4 +102,17 @@ object derive {
       (implicit modifier: Modifier[R, w.T, One[X], One[Y]]) = modifier(r, { (ox: One[X]) => ox.map(f) })
     // What does updateWith do?
   }
+
+
+  // TODO: morphing for derived (calculated fields)
+  // what we want to do is lift a pure no-arg def into an additional record field
+  // so that code that operates over the record can do stuff with it
+  // What about key?
+  def appendDerivedField[T, L <: HList, B](t: T, f: T => B)
+    (implicit l: LabelledGeneric.Aux[T, L],
+      b: Updater[L, B]) = {
+    b(l.to(t), f(t))
+  }
+
+  //appendDerivedField
 }
