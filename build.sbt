@@ -1,6 +1,6 @@
 enablePlugins(ScalaJSPlugin)
 
-name := "test"
+name := "gravity"
 
 scalaVersion := "2.11.8"
 
