@@ -13,6 +13,12 @@ import poly._
   */
 object methods {
 
+  trait Method2[T]
+
+  // ALTERNATIVE idea:
+  // allow methods to be declared on the originating case class
+  case class Contact2(id: String, firstName: String, lastName: String, fullName: Method2[String])
+
   // adding a monomorphic function doesn't work because our record may change
   // thing may be added after the function is added
 
