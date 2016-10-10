@@ -85,7 +85,11 @@ object derive {
 
   def doLogin[R](r: R)(implicit ev: R =:= loginModel.Out) = {
     //ev(r).fieldAt('id)
-    ev(r)('username)
+
+    // It turns out shapeless has statically type-safe
+    // record field selection
+    //ev(r).record.unknownField // won't compile
+    ev(r).record.username
   }
 
   implicit class MoreRecordOps[R <: HList](r: R) {
