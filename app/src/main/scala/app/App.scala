@@ -1,5 +1,6 @@
 package app
 
+import gravity._
 import gravity.ui._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
@@ -45,7 +46,10 @@ object App extends JSApp {
     }
     AppCSS.load()
     //val comp = component(Account(3, "John Smith", 4))
-    val comp = component(Contact("Mary", "Johnson"))
+    //val comp = component(Contact("Mary", "Johnson"))
+    val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith"))//.merge(('fullName ->> defFullName) :: HNil)
+    val generic2 = Tagger[Contact].apply(generic)
+    val comp = component(generic2)
     ReactDOM.render(comp, dom.document.getElementById("container"))
   }
 }

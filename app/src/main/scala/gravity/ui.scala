@@ -1,10 +1,11 @@
 package gravity
 
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
+import gravity.methods._
 import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import shapeless._
 import shapeless.labelled._
-import shapeless.ops.hlist.{Mapper, ToTraversable}
+import shapeless.ops.hlist.{Mapper, ToTraversable, ZipConst}
 import shapeless.tag.@@
 
 object ui {
@@ -118,6 +119,7 @@ def toReactElement: ReactElement
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
+  /*
   implicit def makeTableView[T, L <: HList, TL <: HList, O <: HList]
   (implicit
     l: LabelledGeneric.Aux[T, L],
@@ -144,6 +146,37 @@ def toReactElement: ReactElement
           .build
       mui()
     }
+  } */
+
+  import methods.Access._
+
+
+  implicit def makeTableView[L <: HList, LL <: HList, O <: HList]
+  (implicit
+    zippy: ZipConst.Aux[L, L, LL],
+    mapper: Mapper.Aux[accessThenView.type, LL, O],
+    //mapper: Mapper.Aux[headerAndView.type, L, O]
+    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]) = new View[L] {
+    def view(l: L): ReactNode = {
+      val fieldElems: List[(ReactNode, ReactNode)] =
+        ((l zipConst l) map accessThenView).toList
+      val mui =
+        ReactComponentB[Unit]("blah")
+          .render(_ =>
+            MuiTable()(
+              MuiTableBody(displayRowCheckbox = false)(
+                fieldElems map { case (l, r) =>
+                  MuiTableRow()(
+                    MuiTableRowColumn()(l),
+                    MuiTableRowColumn()(r)
+                  )
+                }
+              )
+            )
+          )
+          .build
+      mui()
+    }
   }
 
   // TODO: add a default so some fields can be skipped.  use Poly1WithDefault
@@ -153,7 +186,22 @@ def toReactElement: ReactElement
       header: Header[T], view: View[T]) = at[T] { t =>
       (header.header, view.view(t))
     }
+  }
 
+  object accessThenView extends Poly1 {
+
+    // Note that T and V are free
+    implicit def accessThenView[T, L <: HList, K, V](
+      implicit
+      //access: Selector.Aux[L, K, V]//,
+      access: Access.Aux[L, K, V],
+      header: Header[FieldType[K, V] @@ T],
+      v: View[FieldType[K, V] @@ T]
+    ) = at[(FieldType[K, V] @@ T, L)] {
+      case (fieldValue, l) =>
+        val f = tag[T](field[K](access(l)))
+        (header.header, v.view(fieldValue))
+    }
   }
 
   import shapeless.tag._

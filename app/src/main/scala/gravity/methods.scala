@@ -3,10 +3,7 @@ package gravity
 
 import shapeless._
 import shapeless.ops.record._
-import shapeless.syntax.singleton._
-import shapeless.record._
 import poly._
-
 
 /**
   * Methods for records. These are encoded as polymorphic functions as record values.
@@ -38,16 +35,22 @@ object methods {
     * Get a field or invoke a method.  Uniform access principle.
     */
   // abstracts over simple Select and Compute apply
-  trait Access[L <: HList, K, V] extends DepFn1[L] { type Out = V }
+  trait Access[L <: HList, K] extends DepFn1[L]
+
   object Access {
-    implicit def accessSelect[L <: HList, K, V](implicit sel: Selector.Aux[L, K, V]) = new Access[L, K, V] {
+
+    type Aux[L <: HList, K, V] = Access[L, K] { type Out = V }
+
+    implicit def accessSelect[L <: HList, K, V](implicit sel: Selector.Aux[L, K, V]) = new Access[L, K] {
+      type Out = V
       def apply(l: L) = sel(l)
     }
 
     implicit def accessMethod[L <: HList, K, HF <: Poly, V]
     (implicit
       sel: Selector.Aux[L, K, HF],
-      method: Method.Aux[HF, L, V]) = new Access[L, K, V] {
+      method: Method.Aux[HF, L, V]) = new Access[L, K] {
+      type Out = V
       def apply(l: L) = method(l)
     }
   }
