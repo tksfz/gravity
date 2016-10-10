@@ -42,11 +42,6 @@ object models {
 
   // one thing is we don't know the result type of the higher-rank function
   // but i think there's an Aux for that
-  val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith")).merge(('fullName ->> defFullName) :: HNil)
-
-  def main(args: Array[String]): Unit = {
-    println(execute(generic, 'fullName))
-  }
 
   def execute[L <: HList, HF <: Poly](l: L, w: Witness)
     (implicit
