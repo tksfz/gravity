@@ -6,6 +6,8 @@ import shapeless.ops.record.Selector
 import shapeless._
 
 object models {
+
+  // visibility - isDeleted, ownership or security, back-end details
   case class Account(
     id: Int,
     name: String,
