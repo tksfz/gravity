@@ -12,8 +12,8 @@ object ui {
   /**
     * Some questions to think about:
     * How do we handle, say at the data model level, foreign key lookups and displaying the name of the reference?
-    *   (1) One[T] can resolve to a name - how do we represent that?
-    *   (2) do we have some kind of name_denorm system?
+    *   (1) One[T] can resolve to a name - how do we represent that?  Transformations over the record representation.
+    *   (2) do we have some kind of name_denorm system?               Maybe.
     *   (3) How does the View reach back to the query and say:  I want this data?
     *
     *   The answer to (3) is it doesn't.  The data drives the view, not the other way around.
@@ -64,6 +64,8 @@ def toReactElement: ReactElement
   // come up with a better name than Label
   // FieldHeader or FieldLabel? header is fine actually.  it doesn't have to be just a field header
   // e.g. it could be a tab header
+  // this should possibly just be pushed to the View typeclass
+  // primitives don't have obvious headers though:  String, Int, etc.  only fields and more complex objects do?
   trait Header[T] {
     def header: ReactNode
   }
@@ -165,6 +167,12 @@ def toReactElement: ReactElement
 
   object Tagger {
     def apply[T, L <: HList](implicit tagger: Tagger[T, L]): Aux[T, L, tagger.Out] = tagger
+
+    class Curried[T] {
+      def apply[L <: HList](l: L)(implicit tagger: Tagger[T, L]) = tagger.apply(l)
+    }
+
+    def apply[T] = new Curried[T]
 
     type Aux[T, In <: HList, Out0 <: HList] = Tagger[T, In] { type Out = Out0 }
 
