@@ -1,10 +1,11 @@
 package gravity
 
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
+import gravity.methods._
 import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import shapeless._
 import shapeless.labelled._
-import shapeless.ops.hlist.{Mapper, ToTraversable}
+import shapeless.ops.hlist.{Mapper, ToTraversable, ZipConst}
 import shapeless.tag.@@
 
 object ui {
@@ -12,8 +13,8 @@ object ui {
   /**
     * Some questions to think about:
     * How do we handle, say at the data model level, foreign key lookups and displaying the name of the reference?
-    *   (1) One[T] can resolve to a name - how do we represent that?
-    *   (2) do we have some kind of name_denorm system?
+    *   (1) One[T] can resolve to a name - how do we represent that?  Transformations over the record representation.
+    *   (2) do we have some kind of name_denorm system?               Maybe.
     *   (3) How does the View reach back to the query and say:  I want this data?
     *
     *   The answer to (3) is it doesn't.  The data drives the view, not the other way around.
@@ -64,6 +65,8 @@ def toReactElement: ReactElement
   // come up with a better name than Label
   // FieldHeader or FieldLabel? header is fine actually.  it doesn't have to be just a field header
   // e.g. it could be a tab header
+  // this should possibly just be pushed to the View typeclass
+  // primitives don't have obvious headers though:  String, Int, etc.  only fields and more complex objects do?
   trait Header[T] {
     def header: ReactNode
   }
@@ -86,36 +89,29 @@ def toReactElement: ReactElement
   // SelectMany might be better here
   // to traversable String
   // TODO: how do we add the label for T itself here?
-  case class Labels[T, L <: HList, R <: HList](labels: R)
-    (implicit
-      l: LabelledGeneric.Aux[T, L],
-      hasSameKeys: HasSameKeys[L, R]) extends Metadata[T, R](labels)
+  case class Labels[T, R <: HList](labels: R) extends Metadata[T, R](labels)
 
 
   object Labels {
     class Curried[T] {
-      def apply[L <: HList, R <: HList](labels: R)
-        (implicit
-          l: LabelledGeneric.Aux[T, L],
-          hasSameKeys: HasSameKeys[L, R]) = {
-        Labels[T, L, R](labels)
+      def apply[R <: HList](labels: R) = {
+        Labels[T, R](labels)
       }
     }
     def apply[T] = new Curried[T]
   }
 
-  implicit def fromLabelsData[T, L <: HList, F, V, R <: HList]
+  implicit def fromLabelsData[T, F, V, R <: HList]
   (implicit
-    l: LabelledGeneric.Aux[T, L],
-    fInL: ops.record.Selector.Aux[L, F, V],
-    data: Labels[T, L, R],
-    fInRToo: ops.record.Selector.Aux[R, F, String]) = new Label[FieldType[F, V] @@ T] {
-    def label = fInRToo.apply(data.labels)
+    data: Labels[T, R],
+    fInR: ops.record.Selector.Aux[R, F, String]) = new Label[FieldType[F, V] @@ T] {
+    def label = fInR.apply(data.labels)
   }
 
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
+  /*
   implicit def makeTableView[T, L <: HList, TL <: HList, O <: HList]
   (implicit
     l: LabelledGeneric.Aux[T, L],
@@ -142,6 +138,37 @@ def toReactElement: ReactElement
           .build
       mui()
     }
+  } */
+
+  import methods.Access._
+
+
+  implicit def makeTableView[L <: HList, LL <: HList, O <: HList]
+  (implicit
+    zippy: ZipConst.Aux[L, L, LL],
+    mapper: Mapper.Aux[accessThenView.type, LL, O],
+    //mapper: Mapper.Aux[headerAndView.type, L, O]
+    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]) = new View[L] {
+    def view(l: L): ReactNode = {
+      val fieldElems: List[(ReactNode, ReactNode)] =
+        ((l zipConst l) map accessThenView).toList
+      val mui =
+        ReactComponentB[Unit]("blah")
+          .render(_ =>
+            MuiTable()(
+              MuiTableBody(displayRowCheckbox = false)(
+                fieldElems map { case (l, r) =>
+                  MuiTableRow()(
+                    MuiTableRowColumn()(l),
+                    MuiTableRowColumn()(r)
+                  )
+                }
+              )
+            )
+          )
+          .build
+      mui()
+    }
   }
 
   // TODO: add a default so some fields can be skipped.  use Poly1WithDefault
@@ -151,7 +178,21 @@ def toReactElement: ReactElement
       header: Header[T], view: View[T]) = at[T] { t =>
       (header.header, view.view(t))
     }
+  }
 
+  object accessThenView extends Poly1 {
+
+    // Note that T and V are free
+    implicit def accessThenView[T, L <: HList, K, V, R](
+      implicit
+      access: Access.Aux[L, K, R],
+      header: Header[FieldType[K, R] @@ T],
+      v: View[FieldType[K, R] @@ T]
+    ) = at[(FieldType[K, V] @@ T, L)] {
+      case (fieldValue, l) =>
+        val f = tag[T](field[K](access(l)))
+        (header.header, v.view(f))
+    }
   }
 
   import shapeless.tag._
@@ -165,6 +206,12 @@ def toReactElement: ReactElement
 
   object Tagger {
     def apply[T, L <: HList](implicit tagger: Tagger[T, L]): Aux[T, L, tagger.Out] = tagger
+
+    class Curried[T] {
+      def apply[L <: HList](l: L)(implicit tagger: Tagger[T, L]) = tagger.apply(l)
+    }
+
+    def apply[T] = new Curried[T]
 
     type Aux[T, In <: HList, Out0 <: HList] = Tagger[T, In] { type Out = Out0 }
 
