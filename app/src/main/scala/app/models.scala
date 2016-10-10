@@ -1,11 +1,9 @@
 package app
 
-import gravity.methods.{Access, Method, Method$}
-import shapeless.syntax.singleton._
+import gravity.methods.Method
 import gravity.ui.Labels
 import shapeless.ops.record.Selector
 import shapeless._
-import shapeless.record._
 
 object models {
   case class Account(
@@ -14,24 +12,22 @@ object models {
     numEmployees: Int
   )
 
-  // allow a tuple syntax?
-  implicit val mylabelsData = Labels[Account].apply(
-    ('id ->> "Id") ::
-      ('name ->> "Name") ::
-      ('numEmployees ->> "Number of employees") ::
-      shapeless.HNil
+  implicit val accountLabels = Labels[Account].apply(
+    id = "Id",
+    name = "Name",
+    numEmployees = "Number of employees"
   )
 
   case class Contact(firstName: String, lastName: String) {
     def fullName = firstName + lastName
   }
 
-  implicit val contactLabels = Labels[Contact].apply(
-      ('firstName ->> "First Name") ::
-      ('lastName ->> "Last Name") ::
-        ('fullName ->> "Name") ::
-      shapeless.HNil
+  implicit val contactLabels = Labels[Contact].apply (
+    firstName = "First Name",
+    lastName = "Last Name",
+    fullName = "Name"
   )
+
   // can be attached to any record with the appropriate fields
   // tagged with Contact
   object defFullName extends Poly1 {
