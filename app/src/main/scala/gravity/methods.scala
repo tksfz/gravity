@@ -37,19 +37,21 @@ object methods {
   // abstracts over simple Select and Compute apply
   trait Access[L <: HList, K] extends DepFn1[L]
 
-  object Access {
-
-    type Aux[L <: HList, K, V] = Access[L, K] { type Out = V }
-
+  trait LpAccess {
     implicit def accessSelect[L <: HList, K, V](implicit sel: Selector.Aux[L, K, V]) = new Access[L, K] {
       type Out = V
       def apply(l: L) = sel(l)
     }
+  }
+
+  object Access extends LpAccess {
+
+    type Aux[L <: HList, K, V] = Access[L, K] { type Out = V }
 
     implicit def accessMethod[L <: HList, K, HF <: Poly, V]
     (implicit
       sel: Selector.Aux[L, K, HF],
-      method: Method.Aux[HF, L, V]) = new Access[L, K] {
+      method: Method.Aux[HF, L, V]): Access.Aux[L, K, V] = new Access[L, K] {
       type Out = V
       def apply(l: L) = method(l)
     }

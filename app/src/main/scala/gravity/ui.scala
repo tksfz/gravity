@@ -89,31 +89,23 @@ def toReactElement: ReactElement
   // SelectMany might be better here
   // to traversable String
   // TODO: how do we add the label for T itself here?
-  case class Labels[T, L <: HList, R <: HList](labels: R)
-    (implicit
-      l: LabelledGeneric.Aux[T, L],
-      hasSameKeys: HasSameKeys[L, R]) extends Metadata[T, R](labels)
+  case class Labels[T, R <: HList](labels: R) extends Metadata[T, R](labels)
 
 
   object Labels {
     class Curried[T] {
-      def apply[L <: HList, R <: HList](labels: R)
-        (implicit
-          l: LabelledGeneric.Aux[T, L],
-          hasSameKeys: HasSameKeys[L, R]) = {
-        Labels[T, L, R](labels)
+      def apply[R <: HList](labels: R) = {
+        Labels[T, R](labels)
       }
     }
     def apply[T] = new Curried[T]
   }
 
-  implicit def fromLabelsData[T, L <: HList, F, V, R <: HList]
+  implicit def fromLabelsData[T, F, V, R <: HList]
   (implicit
-    l: LabelledGeneric.Aux[T, L],
-    fInL: ops.record.Selector.Aux[L, F, V],
-    data: Labels[T, L, R],
-    fInRToo: ops.record.Selector.Aux[R, F, String]) = new Label[FieldType[F, V] @@ T] {
-    def label = fInRToo.apply(data.labels)
+    data: Labels[T, R],
+    fInR: ops.record.Selector.Aux[R, F, String]) = new Label[FieldType[F, V] @@ T] {
+    def label = fInR.apply(data.labels)
   }
 
   // TODO: we should probably be creating components that accept models
@@ -191,16 +183,15 @@ def toReactElement: ReactElement
   object accessThenView extends Poly1 {
 
     // Note that T and V are free
-    implicit def accessThenView[T, L <: HList, K, V](
+    implicit def accessThenView[T, L <: HList, K, V, R](
       implicit
-      //access: Selector.Aux[L, K, V]//,
-      access: Access.Aux[L, K, V],
-      header: Header[FieldType[K, V] @@ T],
-      v: View[FieldType[K, V] @@ T]
+      access: Access.Aux[L, K, R],
+      header: Header[FieldType[K, R] @@ T],
+      v: View[FieldType[K, R] @@ T]
     ) = at[(FieldType[K, V] @@ T, L)] {
       case (fieldValue, l) =>
         val f = tag[T](field[K](access(l)))
-        (header.header, v.view(fieldValue))
+        (header.header, v.view(f))
     }
   }
 

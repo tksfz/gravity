@@ -15,6 +15,8 @@ import scala.scalajs.js.Dynamic.{global => g}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
 import models._
+import shapeless.record._
+import shapeless.syntax.singleton._
 
 object App extends JSApp {
 
@@ -47,7 +49,7 @@ object App extends JSApp {
     AppCSS.load()
     //val comp = component(Account(3, "John Smith", 4))
     //val comp = component(Contact("Mary", "Johnson"))
-    val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith"))//.merge(('fullName ->> defFullName) :: HNil)
+    val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith")).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
     val comp = component(generic2)
     ReactDOM.render(comp, dom.document.getElementById("container"))

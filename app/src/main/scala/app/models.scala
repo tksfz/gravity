@@ -1,6 +1,6 @@
 package app
 
-import gravity.methods.{Method, Method$}
+import gravity.methods.{Access, Method, Method$}
 import shapeless.syntax.singleton._
 import gravity.ui.Labels
 import shapeless.ops.record.Selector
@@ -29,6 +29,7 @@ object models {
   implicit val contactLabels = Labels[Contact].apply(
       ('firstName ->> "First Name") ::
       ('lastName ->> "Last Name") ::
+        ('fullName ->> "Name") ::
       shapeless.HNil
   )
   // can be attached to any record with the appropriate fields
