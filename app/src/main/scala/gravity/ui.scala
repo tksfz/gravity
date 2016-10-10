@@ -89,60 +89,31 @@ def toReactElement: ReactElement
   // SelectMany might be better here
   // to traversable String
   // TODO: how do we add the label for T itself here?
+  // Instead of LabelledGeneric we might want to check labels against a set including labelledgeneric plus methods
   case class Labels[T, R <: HList](labels: R) extends Metadata[T, R](labels)
 
-
   object Labels {
-    class Curried[T] {
-      def apply[R <: HList](labels: R) = {
+    class Curried[T] extends RecordArgs {
+      def applyRecord[R <: HList](labels: R) = {
         Labels[T, R](labels)
       }
+
+      //def apply[R <: HList](labels: R) = applyRecord(labels)
     }
     def apply[T] = new Curried[T]
   }
 
-  implicit def fromLabelsData[T, F, V, R <: HList]
+  // Note that V is unconstrained
+  implicit def fromLabelsData[T, K, V, R <: HList]
   (implicit
     data: Labels[T, R],
-    fInR: ops.record.Selector.Aux[R, F, String]) = new Label[FieldType[F, V] @@ T] {
-    def label = fInR.apply(data.labels)
+    kInR: ops.record.Selector.Aux[R, K, String]) = new Label[FieldType[K, V] @@ T] {
+    def label = kInR.apply(data.labels)
   }
 
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
-  /*
-  implicit def makeTableView[T, L <: HList, TL <: HList, O <: HList]
-  (implicit
-    l: LabelledGeneric.Aux[T, L],
-    tagger: Tagger.Aux[T, L, TL],
-    mapper: Mapper.Aux[headerAndView.type, TL, O],
-    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]) = new View[T] {
-    def view(t: T): ReactNode = {
-      val fieldElems: List[(ReactNode, ReactNode)] =
-        (tagger.apply(l.to(t)) map headerAndView).toList
-      val mui =
-        ReactComponentB[Unit]("blah")
-          .render(_ =>
-            MuiTable()(
-              MuiTableBody(displayRowCheckbox = false)(
-                fieldElems map { case (l, r) =>
-                  MuiTableRow()(
-                    MuiTableRowColumn()(l),
-                    MuiTableRowColumn()(r)
-                  )
-                }
-              )
-            )
-          )
-          .build
-      mui()
-    }
-  } */
-
-  import methods.Access._
-
-
   implicit def makeTableView[L <: HList, LL <: HList, O <: HList]
   (implicit
     zippy: ZipConst.Aux[L, L, LL],
