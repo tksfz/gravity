@@ -13,6 +13,7 @@ trait Edit[-T] {
   type Model
 
   // TODO: create a component that takes the Model as a parameter
+  def toModel(t: T): Model
   def empty: Model
   def element(t: Model): ReactNode
 }
@@ -26,18 +27,23 @@ object Edit {
 
   trait Input[T]
 
+  // TODO: if it's already optional then just leave it as-is
+
   implicit object EditString extends Edit[String] {
     type Model = Option[String]
+    def toModel(t: String) = Some(t)
     def empty = None
     def element(t: Option[String]) = ReactComponentB[Unit]("blah")
       .render(P => {
-        MuiTextField(hintText = "Blah blah")()
+        val str = t.getOrElse("")
+        MuiTextField(hintText = "Hint text", defaultValue = str)()
       })
       .build()
   }
 
   implicit object EditInt extends Edit[Int] {
     type Model = Option[Int]
+    def toModel(t: Int) = Some(t)
     def empty = None
     def element(t: Option[Int]) = MuiTextField()()
   }
@@ -51,6 +57,8 @@ object Edit {
     e: Edit.Aux[L, E]
   ) = new Edit[T] {
     type Model = E
+
+    def toModel(t: T) = e.toModel(l.to(t))
 
     // TODO: create a component that takes the Model as a parameter
     override def empty: E = e.empty
@@ -66,6 +74,8 @@ object Edit {
   ) = new Edit[L] {
     override type Model = M
 
+    def toModel(t: L) = edit2.toModel(t)
+
     // TODO: create a component that takes the Model as a parameter
     override def empty: M = edit2.empty
 
@@ -74,8 +84,12 @@ object Edit {
     }
   }
 
+  // I can't come up with a better way to do this
+  // but we can certainly keep trying
   trait Edit2[T] {
     type Model
+
+    def toModel(t: T): Model
 
     // TODO: create a component that takes the Model as a parameter
     def empty: Model
@@ -88,6 +102,7 @@ object Edit {
 
     implicit def editHNil = new Edit2[HNil] {
       type Model = HNil
+      def toModel(t: HNil) = t
       def empty = HNil
       def elements(t: HNil) = Nil
     }
@@ -99,6 +114,8 @@ object Edit {
       tedit: Edit2.Aux[T, TM]
     ) = new Edit2[H :: T] {
       type Model = hedit.Model :: TM
+
+      def toModel(t: H :: T) = hedit.toModel(t.head) :: tedit.toModel(t.tail)
 
       //def element()
       def empty = hedit.empty :: tedit.empty
