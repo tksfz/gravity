@@ -3,6 +3,7 @@ package app
 import gravity._
 import gravity.ui._
 import gravity.ui.View._
+import gravity.ui.Edit._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._
@@ -21,8 +22,8 @@ import shapeless.syntax.singleton._
 
 object App extends JSApp {
 
-  private[this] def component[T](t: T)(implicit g: View[T]) = {
-    val content: ReactNode = g.view(t)
+  private[this] def component[T](t: T)(implicit g: Edit[T]) = {
+    val content: ReactNode = g.element(g.empty)
     WithAsyncScript("assets/material_ui-bundle.js") {
       MuiMuiThemeProvider()(
         <.div(
@@ -52,7 +53,7 @@ object App extends JSApp {
     //val comp = component(Contact("Mary", "Johnson"))
     val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith")).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
-    val comp = component(generic2)
+    val comp = component(Contact("Mary", "Smith"))
     ReactDOM.render(comp, dom.document.getElementById("container"))
   }
 }

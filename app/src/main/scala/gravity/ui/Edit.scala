@@ -1,13 +1,15 @@
-package View
+package gravity.ui
 
-import gravity.ui.View
-import japgolly.scalajs.react.ReactNode
+import chandu0101.scalajs.react.components.materialui.MuiTextField
+import chandu0101.scalajs.react.components.Implicits._
+import japgolly.scalajs.react.{ReactComponentB, ReactNode}
+import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
 
 /**
   * Created by thom on 10/10/16.
   */
-trait Edit[T] {
+trait Edit[-T] {
   type Model
 
   // TODO: create a component that takes the Model as a parameter
@@ -27,15 +29,21 @@ object Edit {
   implicit object EditString extends Edit[String] {
     type Model = Option[String]
     def empty = None
-    def element(t: Option[String]) = ???
+    def element(t: Option[String]) = ReactComponentB[Unit]("blah")
+      .render(P => {
+        MuiTextField(hintText = "Blah blah")()
+      })
+      .build()
   }
 
   implicit object EditInt extends Edit[Int] {
     type Model = Option[Int]
     def empty = None
-    def element(t: Option[Int]) = ???
+    def element(t: Option[Int]) = MuiTextField()()
   }
 
+  // todo headers
+  // TODO version of LabelledGeneric that class-tags the fields
   // how do we make certain fields not editable?
   implicit def classEdit[T, L <: HList, E <: HList](
     implicit
@@ -45,9 +53,9 @@ object Edit {
     type Model = E
 
     // TODO: create a component that takes the Model as a parameter
-    override def empty: E = ???
+    override def empty: E = e.empty
 
-    override def element(t: E): ReactNode = ???
+    override def element(t: E): ReactNode = e.element(t)
   }
 
   type Aux[T, M] = Edit[T] { type Model = M }
@@ -62,7 +70,7 @@ object Edit {
     override def empty: M = edit2.empty
 
     override def element(t: M) = {
-      ???
+      edit2.elements(t)
     }
   }
 
@@ -81,7 +89,7 @@ object Edit {
     implicit def editHNil = new Edit2[HNil] {
       type Model = HNil
       def empty = HNil
-      def elements(t: HNil) = ???
+      def elements(t: HNil) = Nil
     }
 
     // FieldType vs non-FieldType
