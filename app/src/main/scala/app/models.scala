@@ -7,11 +7,26 @@ import shapeless._
 
 object models {
 
+  case class Address(
+    street: Option[String],
+    city: Option[String],
+    country: Option[String],
+    postalCode: Option[String]
+  )
+
+  case class User(
+    id: Int,
+    username: String,
+    alias: String
+  )
+
   // visibility - isDeleted, ownership or security, back-end details
   case class Account(
     id: Int,
+    ownerId: One[User],
     name: String,
-    numEmployees: Int
+    numEmployees: Int,
+    address: Address
   )
 
   implicit val accountLabels = Labels[Account].apply(
@@ -20,7 +35,16 @@ object models {
     numEmployees = "Number of employees"
   )
 
-  case class Contact(firstName: String, lastName: String) {
+  case class Contact(
+    //id: Int,
+    //ownerId: One[User],
+    lastName: String,
+    firstName: String
+    //title: Option[String],
+    //account: ZeroOrOne[Account],
+    //mailingAddress: Address,
+    //otherAddress: Address
+  ) {
     def fullName = firstName + lastName
   }
 
@@ -50,6 +74,10 @@ object models {
   }
 
   trait Reference[T]
+
+  trait ZeroOrOne[T] extends Reference[T]
+
+  trait Many[T] extends Reference[T]
 
   trait One[T] extends Reference[T] {
     def map[B](f: T => B): One[B]
