@@ -1,15 +1,22 @@
 package gravity.ui
 
-import chandu0101.scalajs.react.components.materialui.MuiTextField
+import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import chandu0101.scalajs.react.components.Implicits._
+import gravity.ClassGeneric
 import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
+import shapeless.labelled.FieldType
+import shapeless.ops.hlist.{Mapper, ToTraversable}
+import shapeless.tag.@@
 
 /**
-  * Created by thom on 10/10/16.
+  * Typeclass for visually editing a value
+  *
+  * We may not be able to keep contravariance here if/when we actually output the
+  * new model.  But we should be able to recover it with an appropriate typeclass adapter.
   */
-trait Edit[-T] {
+trait Edit[T] {
   type Model
 
   // TODO: create a component that takes the Model as a parameter
@@ -48,12 +55,49 @@ object Edit {
     def element(t: Option[Int]) = MuiTextField()()
   }
 
+  import shapeless.labelled._
+
+  implicit def editClassTaggedField[K, V, M, C](
+    implicit edit: Edit.Aux[V, M]
+  ) = new Edit[FieldType[K, V] @@ C] {
+    override type Model = FieldType[K, M] @@ C
+
+    // TODO: create a component that takes the Model as a parameter
+    override def toModel(t: FieldType[K, V] @@ C): FieldType[K, edit.Model] @@ C = {
+      tag[C](field[K](edit.toModel(t)))
+    }
+
+    override def empty: FieldType[K, edit.Model] @@ C = tag[C](field[K](edit.empty))
+
+    override def element(t: Model): ReactNode = edit.element(t)
+  }
+
+  implicit def editField[K, V](
+    implicit edit: Edit[V]
+  ) = new Edit[FieldType[K, V]] {
+    override type Model = FieldType[K, edit.Model]
+
+    // TODO: create a component that takes the Model as a parameter
+    override def toModel(t: FieldType[K, V]): FieldType[K, edit.Model] = {
+      field[K](edit.toModel(t))
+    }
+
+    override def empty: FieldType[K, edit.Model] = field[K](edit.empty)
+
+    override def element(t: Model): ReactNode = edit.element(t)
+  }
+
   // todo headers
-  // TODO version of LabelledGeneric that class-tags the fields
   // how do we make certain fields not editable?
+  // we might consider making this not implicit and forcing model classes
+  // to declare explicit views etc.
+  // they can always have a choice of implementations
+  // one thing that does is it allows the compiler to show an error
+  // at the time the implicit is explicitly defined
+  // where the model is declared, rather than where it's used
   implicit def classEdit[T, L <: HList, E <: HList](
     implicit
-    l: LabelledGeneric.Aux[T, L],
+    l: ClassGeneric.Aux[T, L],
     e: Edit.Aux[L, E]
   ) = new Edit[T] {
     type Model = E
@@ -68,9 +112,15 @@ object Edit {
 
   type Aux[T, M] = Edit[T] { type Model = M }
 
-  implicit def hlistEdit[L <: HList, M <: HList](
+  // conceivably Edit2.Aux[L, M] could drop some fields of L
+  // e.g. Id fields get dropped
+  // so we really need to work off of M directly after Edit2
+  // e.g. we can't iterate over L to get headers
+  implicit def hlistEdit[L <: HList, O <: HList, M <: HList, H <: HList](
     implicit
-    edit2: Edit2.Aux[L, M]
+    edit2: Edit2.Aux[L, M],
+    mapper: Mapper.Aux[headerPoly.type, M, H],
+    trav: ToTraversable.Aux[H, List, ReactNode]
   ) = new Edit[L] {
     override type Model = M
 
@@ -80,7 +130,24 @@ object Edit {
     override def empty: M = edit2.empty
 
     override def element(t: M) = {
-      edit2.elements(t)
+      val elements = edit2.elements(t)
+      val headers = (t map headerPoly).toList
+      val fields = headers zip elements
+      ReactComponentB[Unit]("blah")
+        .render(_ =>
+          MuiTable()(
+            MuiTableBody(displayRowCheckbox = false)(
+              fields map { case (l, r) =>
+                MuiTableRow()(
+                  MuiTableRowColumn()(l),
+                  MuiTableRowColumn()(r)
+                )
+              }
+            )
+          )
+        )
+        .build
+        .apply()
     }
   }
 
@@ -130,6 +197,12 @@ object Edit {
   //val editContactModel = Derive[Contact].apply.apply(_.map(wrapper))
 
   //editContactModel.create()
+
+  object headerPoly extends Poly1 {
+    implicit def foo[T]
+    (implicit
+      header: Header[T]) = at[T] { t => header.header }
+  }
 
   trait Create[T]
 
