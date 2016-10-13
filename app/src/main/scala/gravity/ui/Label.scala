@@ -19,7 +19,8 @@ trait Label[T] {
 }
 
 object Label {
-  // Note that V is unconstrained
+  // Note that V is unconstrained so effectively
+  // we generate labels for any FieldType[K, _] @@ T regardless of value type V
   implicit def fromLabelsData[T, K, V, R <: HList]
   (implicit
     data: Labels[T, R],
