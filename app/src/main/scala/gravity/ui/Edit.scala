@@ -26,6 +26,9 @@ trait Edit[T] {
 }
 
 object Edit {
+
+  type Aux[T, M] = Edit[T] { type Model = M }
+  
   // These are generaally client-side models since server-side is typically working
   // with data models only
   // although these do get serialized to the server-side sometimes
@@ -40,12 +43,17 @@ object Edit {
     type Model = Option[String]
     def toModel(t: String) = Some(t)
     def empty = None
-    def element(t: Option[String]) = ReactComponentB[Unit]("blah")
-      .render(P => {
-        val str = t.getOrElse("")
-        MuiTextField(hintText = "Hint text", defaultValue = str)()
-      })
-      .build()
+
+    def textField(t: Option[String]) = {
+      val str = t.getOrElse("")
+      MuiTextField(defaultValue = str)
+    }
+
+    def element(t: Option[String]) = {
+      ReactComponentB[Unit]("blah")
+        .render(P => textField(t)())
+        .build()
+    }
   }
 
   implicit object EditInt extends Edit[Int] {
@@ -58,7 +66,8 @@ object Edit {
   import shapeless.labelled._
 
   implicit def editClassTaggedField[K, V, M, C](
-    implicit edit: Edit.Aux[V, M]
+    implicit edit: Edit.Aux[V, M],
+    header: Header[FieldType[K, V] @@ C]
   ) = new Edit[FieldType[K, V] @@ C] {
     override type Model = FieldType[K, M] @@ C
 
@@ -69,7 +78,18 @@ object Edit {
 
     override def empty: FieldType[K, edit.Model] @@ C = tag[C](field[K](edit.empty))
 
-    override def element(t: Model): ReactNode = edit.element(t)
+    override def element(t: Model): ReactNode = {
+      edit match {
+        case es@EditString =>
+          ReactComponentB[Unit]("blah")
+            .render { P =>
+              val tf = es.textField(t)
+              tf.copy(floatingLabelText = header.header)()
+            }
+            .build()
+        case _ => edit.element(t)
+      }
+    }
   }
 
   implicit def editField[K, V](
@@ -87,7 +107,6 @@ object Edit {
     override def element(t: Model): ReactNode = edit.element(t)
   }
 
-  // todo headers
   // how do we make certain fields not editable?
   // we might consider making this not implicit and forcing model classes
   // to declare explicit views etc.
@@ -110,17 +129,13 @@ object Edit {
     override def element(t: E): ReactNode = e.element(t)
   }
 
-  type Aux[T, M] = Edit[T] { type Model = M }
-
   // conceivably Edit2.Aux[L, M] could drop some fields of L
   // e.g. Id fields get dropped
   // so we really need to work off of M directly after Edit2
   // e.g. we can't iterate over L to get headers
   implicit def hlistEdit[L <: HList, O <: HList, M <: HList, H <: HList](
     implicit
-    edit2: Edit2.Aux[L, M],
-    mapper: Mapper.Aux[headerPoly.type, M, H],
-    trav: ToTraversable.Aux[H, List, ReactNode]
+    edit2: Edit2.Aux[L, M]
   ) = new Edit[L] {
     override type Model = M
 
@@ -130,24 +145,7 @@ object Edit {
     override def empty: M = edit2.empty
 
     override def element(t: M) = {
-      val elements = edit2.elements(t)
-      val headers = (t map headerPoly).toList
-      val fields = headers zip elements
-      ReactComponentB[Unit]("blah")
-        .render(_ =>
-          MuiTable()(
-            MuiTableBody(displayRowCheckbox = false)(
-              fields map { case (l, r) =>
-                MuiTableRow()(
-                  MuiTableRowColumn()(l),
-                  MuiTableRowColumn()(r)
-                )
-              }
-            )
-          )
-        )
-        .build
-        .apply()
+      edit2.elements(t).map(e => <.div(e))
     }
   }
 
