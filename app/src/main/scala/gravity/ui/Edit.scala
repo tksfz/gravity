@@ -44,6 +44,8 @@ object Edit {
     def toModel(t: String) = Some(t)
     def empty = None
 
+    // TODO: instead of exposing textField like this
+    // we should be using props/state to allow passing in the header
     def textField(t: Option[String]) = {
       val str = t.getOrElse("")
       MuiTextField(defaultValue = str)
@@ -145,7 +147,23 @@ object Edit {
     override def empty: M = edit2.empty
 
     override def element(t: M) = {
-      edit2.elements(t).map(e => <.div(e))
+      // TODO: we should be using a grid system here rather than a table
+      val elements = edit2.elements(t)
+      ReactComponentB[Unit]("blah")
+        .render(_ =>
+          MuiTable(selectable = false)(
+            MuiTableBody(displayRowCheckbox = false)(
+              elements.grouped(2) map { case Seq(l, r) =>
+                MuiTableRow(displayBorder = false)(
+                  MuiTableRowColumn()(l),
+                  MuiTableRowColumn()(r)
+                )
+              }
+            )
+          )
+        )
+        .build
+        .apply()
     }
   }
 
