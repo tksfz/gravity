@@ -21,6 +21,40 @@ object util {
 
 }
 
+import shapeless.tag._
+
+/**
+  * Type class supporting mapping a higher ranked function over this `HList`.
+  *
+  * @author Miles Sabin
+  */
+trait Tagger[T, In <: HList] extends DepFn1[In] with Serializable { type Out <: HList }
+
+object Tagger {
+  def apply[T, L <: HList](implicit tagger: Tagger[T, L]): Aux[T, L, tagger.Out] = tagger
+
+  class Curried[T] {
+    def apply[L <: HList](l: L)(implicit tagger: Tagger[T, L]) = tagger.apply(l)
+  }
+
+  def apply[T] = new Curried[T]
+
+  type Aux[T, In <: HList, Out0 <: HList] = Tagger[T, In] { type Out = Out0 }
+
+  implicit def hnilMapper1[T]: Aux[T, HNil, HNil] =
+    new Tagger[T, HNil] {
+      type Out = HNil
+      def apply(l : HNil): Out = HNil
+    }
+
+  implicit def hlistMapper1[T, InH, InT <: HList]
+  (implicit mt : Tagger[T, InT]): Aux[T, InH :: InT, (InH @@ T) :: mt.Out] =
+    new Tagger[T, InH :: InT] {
+      type Out = (InH @@ T) :: mt.Out
+      def apply(l : InH :: InT): Out = tag[T](l.head) :: mt(l.tail)
+    }
+}
+
 trait ZipByKey[L <: HList, R <: HList] extends DepFn2[L, R] {
   type Out <: HList
 }
