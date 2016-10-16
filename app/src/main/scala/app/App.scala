@@ -51,9 +51,11 @@ object App extends JSApp {
     AppCSS.load()
     //val comp = component(Account(3, "John Smith", 4))
     //val comp = component(Contact("Mary", "Johnson"))
-    val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith")).merge(('fullName ->> defFullName) :: HNil)
+    val user = User(Id(1), "harry@potter.com", "hpotter", "Harry Potter")
+    val contact = Contact(Id(1), OneId(Id(1)), "Washington")
+    val generic = LabelledGeneric[Contact].to(contact).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
-    val comp = component(Contact("Mary", "Smith"))
+    val comp = component(contact)
     ReactDOM.render(comp, dom.document.getElementById("container"))
   }
 }
