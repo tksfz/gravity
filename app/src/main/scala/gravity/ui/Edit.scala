@@ -10,6 +10,8 @@ import shapeless.labelled.FieldType
 import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
 
+import scala.util.Random
+
 /**
   * Typeclass for visually editing a value
   *
@@ -149,14 +151,17 @@ object Edit {
     override def element(t: M) = {
       // TODO: we should be using a grid system here rather than a table
       val elements = edit2.elements(t)
+      // TODO: figure out whether we really need keys here
+      val rand = new Random
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
             MuiTableBody(displayRowCheckbox = false)(
-              elements.grouped(2) map { case Seq(l, r) =>
-                MuiTableRow(displayBorder = false)(
-                  MuiTableRowColumn()(l),
-                  MuiTableRowColumn()(r)
+              elements.grouped(2) map { seq =>
+                MuiTableRow(key = rand.nextString(5), displayBorder = false)(
+                  seq map { e =>
+                    MuiTableRowColumn(key = rand.nextString(5))(e)
+                  }
                 )
               }
             )
