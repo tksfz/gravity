@@ -29,6 +29,9 @@ trait Edit[T] {
 
 object Edit {
 
+  // TODO: figure out a better way to set id's on TextField's
+  val rand = new Random
+
   type Aux[T, M] = Edit[T] { type Model = M }
   
   // These are generaally client-side models since server-side is typically working
@@ -50,7 +53,7 @@ object Edit {
     // we should be using props/state to allow passing in the header
     def textField(t: Option[String]) = {
       val str = t.getOrElse("")
-      MuiTextField(defaultValue = str)
+      MuiTextField(id = rand.nextString(6), defaultValue = str)
     }
 
     def element(t: Option[String]) = {
@@ -61,11 +64,18 @@ object Edit {
   }
 
   implicit object EditInt extends Edit[Int] {
-    type Model = Option[Int]
+    type Model = Option[Int] // should everything actually be Option[String]?
     def toModel(t: Int) = Some(t)
     def empty = None
-    def element(t: Option[Int]) = MuiTextField()()
+    def element(t: Option[Int]) = {
+      val str = t.map(_.toString).getOrElse("")
+      ReactComponentB[Unit]("blah")
+        .render(P => MuiTextField(defaultValue = str)())
+        .build()
+    }
+
   }
+
 
   import shapeless.labelled._
 
@@ -91,7 +101,7 @@ object Edit {
               tf.copy(floatingLabelText = header.header)()
             }
             .build()
-        case _ => edit.element(t)
+        case _ => Seq(header.header, ": ".asInstanceOf[ReactNode], edit.element(t))
       }
     }
   }
@@ -218,12 +228,6 @@ object Edit {
   //val editContactModel = Derive[Contact].apply.apply(_.map(wrapper))
 
   //editContactModel.create()
-
-  object headerPoly extends Poly1 {
-    implicit def foo[T]
-    (implicit
-      header: Header[T]) = at[T] { t => header.header }
-  }
 
   trait Create[T]
 
