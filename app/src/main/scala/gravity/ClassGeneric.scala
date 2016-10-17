@@ -1,6 +1,5 @@
 package gravity
 
-import gravity.ui.Edit
 import shapeless._
 
 /**
