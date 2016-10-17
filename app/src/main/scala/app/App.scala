@@ -22,6 +22,8 @@ import shapeless.syntax.singleton._
 
 object App extends JSApp {
 
+  import EnableRelaxedImplicits._
+
   private[this] def component[T](t: T)(implicit g: Edit[T]) = {
     val content: ReactNode = g.element(g.toModel(t))
     WithAsyncScript("assets/material_ui-bundle.js") {

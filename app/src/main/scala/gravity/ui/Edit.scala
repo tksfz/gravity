@@ -6,10 +6,9 @@ import gravity.ClassGeneric
 import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
-import shapeless.labelled.FieldType
-import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
 
+import scala.reflect.ClassTag
 import scala.util.Random
 
 /**
@@ -27,7 +26,20 @@ trait Edit[T] {
   def element(t: Model): ReactNode
 }
 
-object Edit {
+trait RelaxedEditImplicits {
+  implicit def missingEdit[T]
+  (implicit
+    relax: RelaxedImplicits,
+    classTag: ClassTag[T]) = new Edit[T] {
+    override type Model = Unit
+    override def toModel(t: T) = ()
+    override def empty = ()
+    override def element(t: Unit): ReactNode = classTag.toString
+  }
+
+}
+
+object Edit extends RelaxedEditImplicits {
 
   // TODO: figure out a better way to set id's on TextField's
   val rand = new Random
@@ -76,6 +88,12 @@ object Edit {
 
   }
 
+  implicit def editOption[T](implicit edit: Edit.Aux[T, Option[T]]) = new Edit[Option[T]] {
+    override type Model = Option[T]
+    override def toModel(t: Option[T]) = t
+    override def empty = None
+    override def element(t: Option[T]) = edit.element(t)
+  }
 
   import shapeless.labelled._
 
