@@ -13,20 +13,26 @@ import shapeless.tag.@@
 // e.g. it could be a tab header
 // this should possibly just be pushed to the View typeclass
 // primitives don't have obvious headers though:  String, Int, etc.  only fields and more complex objects do?
-trait Header[-T] {
+trait Header[T] {
   def header: ReactNode
 }
 
-object Header {
+trait RelaxedHeaderImplicits {
+  implicit def header[K <: Symbol, V, C]
+  (implicit
+    relax: RelaxedImplicits,
+    w: Witness.Aux[K]) = new Header[FieldType[K, V] @@ C] {
+    def header = w.value.name
+  }
+}
+
+object Header extends RelaxedHeaderImplicits {
   implicit def headerFromLabel[T](implicit label: Label[T]) = new Header[T] {
     override def header: ReactNode = label.label
   }
 
-  implicit def header[K <: Symbol, V]
-  (implicit
-    relax: RelaxedImplicits,
-    w: Witness.Aux[K]) = new Header[KeyTag[K, V]] {
-    def header = w.value.name
+  implicit def fieldHeaderFromLabel[K, V, C](implicit label: Label[FieldType[K, V] @@ C]) = new Header[FieldType[K, V] @@ C] {
+    override def header: ReactNode = label.label
   }
 }
 
