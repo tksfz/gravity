@@ -3,6 +3,7 @@ package gravity.ui
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import chandu0101.scalajs.react.components.Implicits._
 import gravity.ClassGeneric
+import gravity.models.Phone
 import japgolly.scalajs.react.ReactComponentC.ReqProps
 import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -103,12 +104,30 @@ object Edit extends RelaxedEditImplicits {
     def element(t: Option[Int]) = component(t).get.apply(MuiTextField())
   }
 
-  implicit def editOption[T](implicit edit: Edit.Aux[T, Option[T]]) = new Edit[Option[T]] {
+  /**
+    * Edits Option[T] where T is a "basic" type, having an edit model of Option[T]. In that
+    * case, we don't want to produce a model of type Option[Option[T]], we just want to take
+    * the Option[T] edit model as-is.
+    */
+  implicit def editOptionBasic[T](implicit edit: Edit.Aux[T, Option[T]]) = new Edit[Option[T]] {
     override type Model = Option[T]
     override def toModel(t: Option[T]) = t
     override def empty = None
     override def component(t: Option[T]) = edit.component(t)
     override def element(t: Option[T]) = edit.element(t)
+  }
+
+  /**
+    * Edits Option[T] where the edit model for T is not itself an Option, for example T
+    * a case class.  Those don't use Option[T] as a model, instead they use HList's of
+    * Options as their models.
+    */
+  implicit def editOptionComplex[T, M](implicit edit: Edit.Aux[T, M]) = new Edit[Option[T]] {
+    override type Model = Option[M]
+    override def toModel(ot: Option[T]) = ot.map(t => edit.toModel(t))
+    override def empty = None
+    override def component(om: Option[M]) = edit.component(om.getOrElse(edit.empty))
+    override def element(om: Option[M]) = edit.element(om.getOrElse(edit.empty))
   }
 
   import shapeless.labelled._
@@ -145,7 +164,7 @@ object Edit extends RelaxedEditImplicits {
   // one thing that does is it allows the compiler to show an error
   // at the time the implicit is explicitly defined
   // where the model is declared, rather than where it's used
-  implicit def classEdit[T, L <: HList, E <: HList](
+  implicit def editClass[T, L <: HList, E <: HList](
     implicit
     l: ClassGeneric.Aux[T, L],
     e: Edit.Aux[L, E]
