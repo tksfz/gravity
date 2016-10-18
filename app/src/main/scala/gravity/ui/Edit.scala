@@ -1,9 +1,12 @@
 package gravity.ui
 
-import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
+import java.time.{LocalDate}
+import java.util.Date
+
+import chandu0101.scalajs.react.components.materialui.{MuiDatePicker, MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import chandu0101.scalajs.react.components.Implicits._
 import gravity.ClassGeneric
-import gravity.models.Phone
+import gravity.models.{One, OneId, Phone}
 import japgolly.scalajs.react.ReactComponentC.ReqProps
 import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -102,6 +105,53 @@ object Edit extends RelaxedEditImplicits {
     }
 
     def element(t: Option[Int]) = component(t).get.apply(MuiTextField())
+  }
+
+  implicit object EditLocalDate extends Edit[LocalDate] {
+    type Model = Option[LocalDate]
+    def toModel(t: LocalDate) = Some(t)
+    def empty = None
+    def component(t: Option[LocalDate]) = None
+    def element(t: Option[LocalDate]) =
+      ReactComponentB[Unit]("blah")
+        .render(P => MuiDatePicker()())
+        .build()
+  }
+
+  implicit object EditDateTime extends Edit[Date] {
+    type Model = Option[Date]
+    def toModel(t: Date) = Some(t)
+    def empty = None
+    def component(t: Option[Date]) = None
+    def element(t: Option[Date]) =
+      ReactComponentB[Unit]("blah")
+        .render(P => MuiDatePicker()())
+        .build()
+  }
+
+  implicit def editOneReference[T] = new Edit[One[T]] with EditInput {
+    override type Model = Option[String]
+
+    // TODO: create a component that takes the Model as a parameter
+    override def toModel(t: One[T]) = t match {
+      case OneId(id) => Some(id.toString)
+    }
+
+    override def empty = None
+
+    /**
+      * If the editor for this field consists of a ReactComponent, then expose
+      * that component so that it can be customized by the editOption typeclass instance.
+      * MuiTextField is used as the props here only as a shortcut way of
+      * exposing all the options we might want to customize.
+      */
+    override def component(t: Option[String]) =
+      Some(ReactComponentB[MuiTextField]("blah")
+        .render(P => textField(P.props, t.map(_.toString))())
+        .build)
+
+
+    def element(t: Option[String]) = component(t).get.apply(MuiTextField())
   }
 
   /**
