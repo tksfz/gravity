@@ -1,11 +1,13 @@
 package app
 
+import java.time.LocalDate
 import java.util.Date
 
 import gravity.methods.Method
 import gravity.ui.Labels
 import shapeless.ops.record.Selector
 import shapeless._
+import gravity.models._
 
 object models {
 
@@ -17,20 +19,15 @@ object models {
   )
 
   case class User(
-    id: Id,
+    id: ObjectId,
     username: String,
     alias: String,
     name: String
   )
 
-  case class Phone(phone: String)
-  case class Url(url: String)
-
-  case class Id(id: Int)
-
   // visibility - isDeleted, ownership or security, back-end details
   case class Account(
-    id: Id,
+    id: ObjectId,
     owner: One[User],
     name: String,
     parentAccount: Option[One[Account]] = None,
@@ -62,17 +59,15 @@ object models {
     numEmployees = "Number of employees"
   )
 
-  case class DateOnly(date: Date)
-
   case class Contact(
-    id: Id,
+    id: ObjectId,
     owner: One[User],
     lastName: String,
     firstName: Option[String] = None,
     account: Option[One[Account]] = None,
     title: Option[String] = None,
     department: Option[String] = None,
-    birthdate: Option[DateOnly] = None,
+    birthdate: Option[LocalDate] = None,
     homePhone: Option[Phone] = None,
     mobilePhone: Option[Phone] = None,
     otherPhone: Option[Phone] = None,
@@ -114,17 +109,6 @@ object models {
       compute: Method[HF, L]) = {
     compute(l)
   }
-
-  trait Reference[T]
-
-  type ZeroOrOne[T] = Option[One[T]]
-
-  trait Many[T] extends Reference[T]
-
-  trait One[T] extends Reference[T] {
-    def map[B](f: T => B): One[B] = ???
-  }
-  case class OneId[T](id: Id) extends One[T]
 
 }
 

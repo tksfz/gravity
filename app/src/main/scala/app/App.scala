@@ -7,6 +7,7 @@ import gravity.ui.Edit._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._
+import gravity.models.{ObjectId, OneId}
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
@@ -53,8 +54,8 @@ object App extends JSApp {
     AppCSS.load()
     //val comp = component(Account(3, "John Smith", 4))
     //val comp = component(Contact("Mary", "Johnson"))
-    val user = User(Id(1), "harry@potter.com", "hpotter", "Harry Potter")
-    val contact = Contact(Id(1), OneId(Id(1)), "Washington")
+    val user = User(ObjectId(1), "harry@potter.com", "hpotter", "Harry Potter")
+    val contact = Contact(ObjectId(1), OneId(ObjectId(1)), "Washington")
     val generic = LabelledGeneric[Contact].to(contact).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
     val comp = component(contact)
