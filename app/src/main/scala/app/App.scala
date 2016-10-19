@@ -25,8 +25,8 @@ object App extends JSApp {
 
   import EnableRelaxedImplicits._
 
-  private[this] def component[T](t: T)(implicit g: Edit[T]) = {
-    val content: ReactNode = g.element(g.toModel(t))
+  private[this] def component[T](t: T)(implicit g: View[T]) = {
+    val content: ReactNode = g.view(t) //g.element(g.toModel(t))
     WithAsyncScript("assets/material_ui-bundle.js") {
       MuiMuiThemeProvider()(
         <.div(

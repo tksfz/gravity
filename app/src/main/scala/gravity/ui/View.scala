@@ -1,40 +1,15 @@
 package gravity.ui
 
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
+import gravity.ClassGeneric
 import gravity.methods._
+import gravity.util.Poly1WithDefault
 import japgolly.scalajs.react.{ReactComponentB, ReactNode}
 import shapeless._
 import shapeless.labelled._
 import shapeless.ops.hlist.{Mapper, ToTraversable, ZipConst}
+import shapeless.ops.record.Selector
 import shapeless.tag.@@
-
-// come up with a better name than Label
-// FieldHeader or FieldLabel? header is fine actually.  it doesn't have to be just a field header
-// e.g. it could be a tab header
-// this should possibly just be pushed to the View typeclass
-// primitives don't have obvious headers though:  String, Int, etc.  only fields and more complex objects do?
-trait Header[T] {
-  def header: ReactNode
-}
-
-trait RelaxedHeaderImplicits {
-  implicit def header[K <: Symbol, V, C]
-  (implicit
-    relax: RelaxedImplicits,
-    w: Witness.Aux[K]) = new Header[FieldType[K, V] @@ C] {
-    def header = w.value.name
-  }
-}
-
-object Header extends RelaxedHeaderImplicits {
-  implicit def headerFromLabel[T](implicit label: Label[T]) = new Header[T] {
-    override def header: ReactNode = label.label
-  }
-
-  implicit def fieldHeaderFromLabel[K, V, C](implicit label: Label[FieldType[K, V] @@ C]) = new Header[FieldType[K, V] @@ C] {
-    override def header: ReactNode = label.label
-  }
-}
 
 /**
   * Some questions to think about:
@@ -61,7 +36,15 @@ trait View[-T] {
   //def edit[P, S, B, N](t: T): ReactComponentU[P, S, B, N]
 }
 
-object View {
+trait RelaxedViewImplicits {
+  implicit def defaultView[T]
+  (implicit relax: RelaxedImplicits) = new View[T] {
+    override def view(t: T): ReactNode = t.toString
+  }
+
+}
+
+object View extends RelaxedViewImplicits {
 
   /*
 trait Renderable {
@@ -85,6 +68,11 @@ def toReactElement: ReactElement
     def view(n: Int) = n.toString
   }
 
+  implicit def optionView[T]
+  (implicit v: View[T]) = new View[Option[T]] {
+    def view(t: Option[T]) = t.map(v.view(_)).getOrElse("")
+  }
+
   // Should we actually be making this implicit be available by default?
   // For certain datatypes, we want them to be treated like a single field
   // rather than exposing its sub-fields
@@ -93,13 +81,13 @@ def toReactElement: ReactElement
   // i.e. returning ReactComponent here instead of ReactElement
   implicit def makeTableView[L <: HList, LL <: HList, O <: HList]
   (implicit
+    // TODO: add op to resolve methods
     zippy: ZipConst.Aux[L, L, LL],
-    mapper: Mapper.Aux[accessThenView.type, LL, O],
-    //mapper: Mapper.Aux[headerAndView.type, L, O]
+    mapper: Mapper.Aux[headerAndView.type, L, O],
     trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]) = new View[L] {
     def view(l: L): ReactNode = {
       val fieldElems: List[(ReactNode, ReactNode)] =
-        ((l zipConst l) map accessThenView).toList
+        (l map headerAndView).toList
       val mui =
         ReactComponentB[Unit]("blah")
           .render(_ =>
@@ -119,27 +107,19 @@ def toReactElement: ReactElement
     }
   }
 
+  implicit def classView[T, L <: HList]
+  (implicit
+    l: ClassGeneric.Aux[T, L],
+    v: View[L]) = new View[T] {
+    override def view(t: T): ReactNode = v.view(l.to(t))
+  }
+
   // TODO: add a default so some fields can be skipped.  use Poly1WithDefault
   object headerAndView extends Poly1 {
     implicit def headerAndView[T]
     (implicit
       header: Header[T], view: View[T]) = at[T] { t =>
       (header.header, view.view(t))
-    }
-  }
-
-  object accessThenView extends Poly1 {
-
-    // Note that T and V are free
-    implicit def accessThenView[T, L <: HList, K, V, R](
-      implicit
-      access: Access.Aux[L, K, R],
-      header: Header[FieldType[K, R] @@ T],
-      v: View[FieldType[K, R] @@ T]
-    ) = at[(FieldType[K, V] @@ T, L)] {
-      case (fieldValue, l) =>
-        val f = tag[T](field[K](access(l)))
-        (header.header, v.view(f))
     }
   }
 
