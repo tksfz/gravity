@@ -1,5 +1,6 @@
 package gravity.ui
 
+import cats.kernel.Monoid
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import gravity.ClassGeneric
 import gravity.methods._
@@ -83,8 +84,13 @@ object View extends RelaxedViewImplicits {
   }
 
   implicit def optionView[T]
-  (implicit v: View[T]) = new View[Option[T]] {
-    def view(t: Option[T]) = t.map(v.view(_)).getOrElse("")
+  (implicit
+    v: View[T] with ComponentBasedView[T],
+    m: Monoid[T]
+  ) = new View[Option[T]] with ComponentBasedView[Option[T]] {
+    override def component(t: Option[T]) = {
+      v.component(t.getOrElse(m.empty))
+    }
   }
 
   implicit def viewClassTaggedField[K, V, M, C](

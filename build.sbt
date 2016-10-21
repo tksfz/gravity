@@ -59,7 +59,8 @@ lazy val app = project
       "com.github.japgolly.scalacss"      %%% "core"     % scalaCSSVersion,
       "com.github.japgolly.scalacss"      %%% "ext-react" % scalaCSSVersion,
       "com.chuusai" %%% "shapeless" % "2.3.2",
-      "org.scala-js" %%% "scalajs-java-time" % "0.2.0"
+      "org.scala-js" %%% "scalajs-java-time" % "0.2.0",
+      "org.typelevel" %%% "cats" % "0.7.2"
     )
   )
   .configure(commonSettings, createLauncher("app/assets"))
