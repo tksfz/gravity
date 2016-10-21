@@ -19,7 +19,7 @@ trait RelaxedHeaderImplicits {
   (implicit
     relax: RelaxedImplicits,
     w: Witness.Aux[K]) = new Header[FieldType[K, V] @@ C] {
-    def header = w.value.name
+    def header = w.value.name.capitalize
   }
 }
 
