@@ -45,7 +45,7 @@ trait RelaxedEditImplicits {
   (implicit
     relax: RelaxedImplicits,
     classTag: ClassTag[T]) = new Edit[T] {
-    override type Model = Unit
+    override type Model = Unit //TODO: Either[Unit, T] would allow us to use T.toString
     override def toModel(t: T) = ()
     override def empty = ()
     override def component(t: Unit): Option[ReqProps[MuiTextField, Unit, Unit, TopNode]] = None
