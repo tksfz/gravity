@@ -38,6 +38,7 @@ object query {
   // can we define implicits for a path-dependent type? yes we can
   implicit object RelatedContactsView extends View[relatedContacts.Out] {
     override def view(t: relatedContacts.Out): ReactNode = ???
+    override def emptyView: ReactNode = ???
   }
 
 }
