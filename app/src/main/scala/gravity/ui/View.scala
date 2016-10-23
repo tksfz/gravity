@@ -8,7 +8,7 @@ import gravity.util.Poly1WithDefault
 import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import shapeless._
 import shapeless.labelled._
-import shapeless.ops.hlist.{Mapper, ToTraversable, ZipConst}
+import shapeless.ops.hlist.{LiftAll, Mapper, ToTraversable, ZipConst}
 import shapeless.ops.record.Selector
 import shapeless.tag.@@
 import japgolly.scalajs.react.vdom.EmptyTag
@@ -37,7 +37,18 @@ import scala.scalajs.js.UndefOr
   *     desires.
   */
 trait View[T] {
-  def view(t: T): ReactNode
+  // alternatively makes this return a ReactComponentC[UndefOr[T]]?
+  def view(t: UndefOr[T]): ReactNode
+
+  def emptyView: ReactNode = view(js.undefined)
+}
+
+trait ComponentBasedView[T] extends View[T] {
+  def component(t: UndefOr[T]): ReactComponentC.DefaultProps[UndefOr[ReactNode], Unit, Unit, TopNode]
+
+  def emptyComponent = component(js.undefined)
+
+  def view(t: UndefOr[T]) = component(t)()
 }
 
 trait RelaxedViewImplicits {
@@ -45,27 +56,21 @@ trait RelaxedViewImplicits {
   (implicit
     relax: RelaxedImplicits,
     classTag: ClassTag[T]) = new View[T] {
-    override def view(t: T): ReactNode =
-      Seq(classTag.toString, "(no View instance found): ", t.toString)
+    override def view(t: UndefOr[T]): ReactNode =
+      Seq(classTag.toString, "(no View instance found): ", t.map(_.toString).getOrElse("undefined"))
       // TODO: mouseover describing the type
   }
+
 }
 
 object View extends RelaxedViewImplicits {
 
-  trait ComponentBasedView[T] {
-    def component(t: T): ReactComponentC.DefaultProps[UndefOr[ReactNode], Unit, Unit, TopNode]
-
-    def view(t: T) = component(t)()
-  }
-
   implicit object StringView extends View[String] with ComponentBasedView[String] {
-
-    override def component(t: String) = {
+    override def component(t: UndefOr[String]) = {
       //val str = t.getOrElse("")
       //tf.copy(id = rand.nextString(6), defaultValue = str)
       ReactComponentB[UndefOr[ReactNode]]("blah")
-        .render(P => MuiTextField(floatingLabelText = P.props.orElse("asdf".asInstanceOf[UndefOr[ReactNode]]), floatingLabelFixed = true,
+        .render(P => MuiTextField(floatingLabelText = P.props, floatingLabelFixed = true,
           defaultValue = t, underlineShow = false)())
         .build
         .withDefaultProps(js.undefined)
@@ -73,35 +78,37 @@ object View extends RelaxedViewImplicits {
   }
 
   implicit object IntView extends View[Int] with ComponentBasedView[Int] {
-    override def component(t: Int) = {
+    override def component(t: UndefOr[Int]) = {
       //val str = t.getOrElse("")
       //tf.copy(id = rand.nextString(6), defaultValue = str)
+      val str = t.map(_.toString)
       ReactComponentB[UndefOr[ReactNode]]("blah")
-        .render(P => MuiTextField(floatingLabelText = P.props, defaultValue = t.toString, disabled = true, underlineShow = false)())
+        .render(P => MuiTextField(floatingLabelText = P.props, defaultValue = str, disabled = true, underlineShow = false)())
         .build
         .withDefaultProps(js.undefined)
     }
   }
 
-  implicit def optionView[T]
-  (implicit
-    v: View[T] with ComponentBasedView[T],
-    m: Monoid[T]
-  ) = new View[Option[T]] with ComponentBasedView[Option[T]] {
-    override def component(t: Option[T]) = {
-      v.component(t.getOrElse(m.empty))
+  import js.JSConverters._
+
+  implicit def optionComponentBasedView[T](implicit v: View[T] with ComponentBasedView[T]) =
+    new View[Option[T]] with ComponentBasedView[Option[T]] {
+      override def component(t: UndefOr[Option[T]]) = v.component(t.map(_.orUndefined).flatten)
     }
-  }
+
+  implicit def optionView[T](implicit v: View[T]) =
+    new View[Option[T]] {
+      override def view(t: UndefOr[Option[T]]): ReactNode = v.view(t.map(_.orUndefined).flatten)
+    }
 
   implicit def viewClassTaggedField[K, V, M, C](
     implicit v: View[V],
     header: Header[FieldType[K, V] @@ C]
   ) = new View[FieldType[K, V] @@ C] {
-    override def view(t: @@[FieldType[K, V], C]): ReactNode = {
+    override def view(t: UndefOr[@@[FieldType[K, V], C]]): ReactNode = {
       v match {
         case hc: ComponentBasedView[V @unchecked] =>
-          //hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
-          hc.component(t)(Some("asdf".asInstanceOf[UndefOr[ReactNode]]))
+          hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
         case _ =>
           val n: ReactNode = Seq(header.header, "(ctf): ".asInstanceOf[ReactNode], v.view(t))
           n
@@ -114,13 +121,20 @@ object View extends RelaxedViewImplicits {
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
-  implicit def makeTableView[L <: HList, LL <: HList, O <: HList]
+  implicit def makeTableView[L <: HList, O <: HList, V <: HList]
   (implicit
     mapper: Mapper.Aux[headerAndView.type, L, O],
-    trav: ToTraversable.Aux[O, List, ReactNode]) = new View[L] {
-    def view(l: L): ReactNode = {
+    trav: ToTraversable.Aux[O, List, ReactNode],
+    liftAll: LiftAll.Aux[View, L, V],
+    trav2: ToTraversable.Aux[V, List, View[_]]
+  ) = new View[L] {
+    def view(l: UndefOr[L]): ReactNode = {
       val elements: List[ReactNode] =
-        (l map headerAndView).toList
+        l map { l =>
+          (l map headerAndView).toList
+        } getOrElse {
+          liftAll.instances.toList.map(_.emptyView)
+        }
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
@@ -144,28 +158,28 @@ object View extends RelaxedViewImplicits {
   (implicit
     l: ClassGeneric.Aux[T, L],
     v: View[L]) = new View[T] {
-    override def view(t: T): ReactNode = v.view(l.to(t))
+    override def view(t: UndefOr[T]): ReactNode = v.view(t.map(l.to))
   }
+}
 
-  object headerAndView extends Poly1 {
+object headerAndView extends Poly1 {
 
-    /**
-      * For some reason, the View[FieldType..] instance doesn't seem to be able to pick up
-      * the View[V] instances. So we pick up both here, and use whatever works.
-      */
-    implicit def view[C, K, V]
-    (implicit
-      header: Header[FieldType[K, V] @@ C],
-      v: View[V],
-      view: View[FieldType[K, V] @@ C]) = at[FieldType[K, V] @@ C] { t =>
-      v match {
-        case hc: ComponentBasedView[V @unchecked] =>
-          hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
-        case _ =>
-          val n: ReactNode = Seq(header.header, ": ".asInstanceOf[ReactNode], view.view(t))
-          n
-      }
+  import View._
+  /**
+    * For some reason, the View[FieldType..] instance doesn't seem to be able to pick up
+    * the View[V] instances. So we pick up both here, and use whatever works.
+    */
+  implicit def view[C, K, V]
+  (implicit
+    header: Header[FieldType[K, V] @@ C],
+    v: View[V],
+    view: View[FieldType[K, V] @@ C]) = at[FieldType[K, V] @@ C] { t =>
+    v match {
+      case hc: ComponentBasedView[V @unchecked] =>
+        hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
+      case _ =>
+        val n: ReactNode = view.view(t)
+        n
     }
   }
-
 }
