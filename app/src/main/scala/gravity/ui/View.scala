@@ -57,7 +57,7 @@ trait RelaxedViewImplicits {
     relax: RelaxedImplicits,
     classTag: ClassTag[T]) = new View[T] {
     override def view(t: UndefOr[T]): ReactNode =
-      Seq(classTag.toString, "(no View instance found): ", t.map(_.toString).getOrElse("undefined"))
+      Seq(classTag.toString, "(no View instance found): ", t.map(_.toString).getOrElse(""))
       // TODO: mouseover describing the type
   }
 
@@ -110,7 +110,7 @@ object View extends RelaxedViewImplicits {
         case hc: ComponentBasedView[V @unchecked] =>
           hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
         case _ =>
-          val n: ReactNode = Seq(header.header, "(ctf): ".asInstanceOf[ReactNode], v.view(t))
+          val n: ReactNode = Seq(header.header, ": ".asInstanceOf[ReactNode], v.view(t))
           n
       }
     }
