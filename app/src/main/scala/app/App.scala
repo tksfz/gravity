@@ -20,7 +20,6 @@ import shapeless._
 import models._
 import shapeless.record._
 import shapeless.syntax.singleton._
-import cats.instances.all._
 
 object App extends JSApp {
 

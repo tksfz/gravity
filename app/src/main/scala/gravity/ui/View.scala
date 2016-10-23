@@ -1,6 +1,5 @@
 package gravity.ui
 
-import cats.kernel.Monoid
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import gravity.ClassGeneric
 import gravity.methods._
