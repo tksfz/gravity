@@ -91,12 +91,12 @@ object View extends RelaxedViewImplicits {
 
   import js.JSConverters._
 
-  implicit def optionView[T](implicit v: View[T] with ComponentBasedView[T]) =
+  implicit def optionComponentBasedView[T](implicit v: View[T] with ComponentBasedView[T]) =
     new View[Option[T]] with ComponentBasedView[Option[T]] {
       override def component(t: UndefOr[Option[T]]) = v.component(t.map(_.orUndefined).flatten)
     }
 
-  implicit def optionView2[T](implicit v: View[T]) =
+  implicit def optionView[T](implicit v: View[T]) =
     new View[Option[T]] {
       override def view(t: UndefOr[Option[T]]): ReactNode = v.view(t.map(_.orUndefined).flatten)
     }
@@ -109,7 +109,6 @@ object View extends RelaxedViewImplicits {
       v match {
         case hc: ComponentBasedView[V @unchecked] =>
           hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
-          //hc.component(t)(Some("asdf".asInstanceOf[UndefOr[ReactNode]]))
         case _ =>
           val n: ReactNode = Seq(header.header, "(ctf): ".asInstanceOf[ReactNode], v.view(t))
           n
