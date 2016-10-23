@@ -1,14 +1,21 @@
 package gravity.ui
 
-import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
+import java.time.{LocalDate}
+import java.util.Date
+
+import chandu0101.scalajs.react.components.materialui.{MuiDatePicker, MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import chandu0101.scalajs.react.components.Implicits._
 import gravity.ClassGeneric
-import japgolly.scalajs.react.{ReactComponentB, ReactNode}
+import gravity.models.{One, OneId, Phone}
+import japgolly.scalajs.react.ReactComponentC.ReqProps
+import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
 import shapeless.labelled.FieldType
-import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
+
+import scala.reflect.ClassTag
+import scala.util.Random
 
 /**
   * Typeclass for visually editing a value
@@ -22,10 +29,35 @@ trait Edit[T] {
   // TODO: create a component that takes the Model as a parameter
   def toModel(t: T): Model
   def empty: Model
+
+  /**
+    * If the editor for this field consists of a ReactComponent, then expose
+    * that component so that it can be customized by the editOption typeclass instance.
+    * MuiTextField is used as the props here only as a shortcut way of
+    * exposing all the options we might want to customize.
+    */
+  def component(t: Model): Option[ReactComponentC.ReqProps[MuiTextField, Unit, Unit, TopNode]]
   def element(t: Model): ReactNode
 }
 
-object Edit {
+trait RelaxedEditImplicits {
+  implicit def missingEdit[T]
+  (implicit
+    relax: RelaxedImplicits,
+    classTag: ClassTag[T]) = new Edit[T] {
+    override type Model = Unit //TODO: Either[Unit, T] would allow us to use T.toString
+    override def toModel(t: T) = ()
+    override def empty = ()
+    override def component(t: Unit): Option[ReqProps[MuiTextField, Unit, Unit, TopNode]] = None
+    override def element(t: Unit): ReactNode = classTag.toString
+  }
+
+}
+
+object Edit extends RelaxedEditImplicits {
+
+  // TODO: figure out a better way to set id's on TextField's
+  val rand = new Random
 
   type Aux[T, M] = Edit[T] { type Model = M }
   
@@ -37,32 +69,115 @@ object Edit {
 
   trait Input[T]
 
-  // TODO: if it's already optional then just leave it as-is
+  trait EditInput {
+    type Model
+    // TODO: instead of exposing textField like this
+    // we should be using props/state to allow passing in the header
+    def textField(tf: MuiTextField, t: Option[String]) = {
+      val str = t.getOrElse("")
+      tf.copy(id = rand.nextString(6), defaultValue = str)
+    }
+  }
 
-  implicit object EditString extends Edit[String] {
+  implicit object EditString extends Edit[String] with EditInput {
     type Model = Option[String]
     def toModel(t: String) = Some(t)
     def empty = None
 
-    // TODO: instead of exposing textField like this
-    // we should be using props/state to allow passing in the header
-    def textField(t: Option[String]) = {
-      val str = t.getOrElse("")
-      MuiTextField(defaultValue = str)
+    def component(t: Option[String]) = {
+      Some(ReactComponentB[MuiTextField]("blah")
+        .render(P => textField(P.props, t)())
+        .build)
     }
 
-    def element(t: Option[String]) = {
-      ReactComponentB[Unit]("blah")
-        .render(P => textField(t)())
-        .build()
-    }
+    def element(t: Option[String]) = component(t).get.apply(MuiTextField())
   }
 
-  implicit object EditInt extends Edit[Int] {
-    type Model = Option[Int]
+  implicit object EditInt extends Edit[Int] with EditInput {
+    type Model = Option[Int] // should everything actually be Option[String]?
     def toModel(t: Int) = Some(t)
     def empty = None
-    def element(t: Option[Int]) = MuiTextField()()
+
+    override def component(t: Option[Int]) = {
+      Some(ReactComponentB[MuiTextField]("blah")
+        .render(P => textField(P.props, t.map(_.toString))())
+        .build)
+    }
+
+    def element(t: Option[Int]) = component(t).get.apply(MuiTextField())
+  }
+
+  implicit object EditLocalDate extends Edit[LocalDate] {
+    type Model = Option[LocalDate]
+    def toModel(t: LocalDate) = Some(t)
+    def empty = None
+    def component(t: Option[LocalDate]) = None
+    def element(t: Option[LocalDate]) =
+      ReactComponentB[Unit]("blah")
+        .render(P => MuiDatePicker()())
+        .build()
+  }
+
+  implicit object EditDateTime extends Edit[Date] {
+    type Model = Option[Date]
+    def toModel(t: Date) = Some(t)
+    def empty = None
+    def component(t: Option[Date]) = None
+    def element(t: Option[Date]) =
+      ReactComponentB[Unit]("blah")
+        .render(P => MuiDatePicker()())
+        .build()
+  }
+
+  implicit def editOneReference[T] = new Edit[One[T]] with EditInput {
+    override type Model = Option[String]
+
+    // TODO: create a component that takes the Model as a parameter
+    override def toModel(t: One[T]) = t match {
+      case OneId(id) => Some(id.toString)
+    }
+
+    override def empty = None
+
+    /**
+      * If the editor for this field consists of a ReactComponent, then expose
+      * that component so that it can be customized by the editOption typeclass instance.
+      * MuiTextField is used as the props here only as a shortcut way of
+      * exposing all the options we might want to customize.
+      */
+    override def component(t: Option[String]) =
+      Some(ReactComponentB[MuiTextField]("blah")
+        .render(P => textField(P.props, t.map(_.toString))())
+        .build)
+
+
+    def element(t: Option[String]) = component(t).get.apply(MuiTextField())
+  }
+
+  /**
+    * Edits Option[T] where T is a "basic" type, having an edit model of Option[T]. In that
+    * case, we don't want to produce a model of type Option[Option[T]], we just want to take
+    * the Option[T] edit model as-is.
+    */
+  implicit def editOptionBasic[T](implicit edit: Edit.Aux[T, Option[T]]) = new Edit[Option[T]] {
+    override type Model = Option[T]
+    override def toModel(t: Option[T]) = t
+    override def empty = None
+    override def component(t: Option[T]) = edit.component(t)
+    override def element(t: Option[T]) = edit.element(t)
+  }
+
+  /**
+    * Edits Option[T] where the edit model for T is not itself an Option, for example T
+    * a case class.  Those don't use Option[T] as a model, instead they use HList's of
+    * Options as their models.
+    */
+  implicit def editOptionComplex[T, M](implicit edit: Edit.Aux[T, M]) = new Edit[Option[T]] {
+    override type Model = Option[M]
+    override def toModel(ot: Option[T]) = ot.map(t => edit.toModel(t))
+    override def empty = None
+    override def component(om: Option[M]) = edit.component(om.getOrElse(edit.empty))
+    override def element(om: Option[M]) = edit.element(om.getOrElse(edit.empty))
   }
 
   import shapeless.labelled._
@@ -80,33 +195,16 @@ object Edit {
 
     override def empty: FieldType[K, edit.Model] @@ C = tag[C](field[K](edit.empty))
 
+
+    override def component(t: @@[FieldType[K, M], C]) = edit.component(t)
+
     override def element(t: Model): ReactNode = {
-      edit match {
-        case es@EditString =>
-          ReactComponentB[Unit]("blah")
-            .render { P =>
-              val tf = es.textField(t)
-              tf.copy(floatingLabelText = header.header)()
-            }
-            .build()
-        case _ => edit.element(t)
-      }
+      edit.component(t)
+        .map(_.apply(MuiTextField(floatingLabelText = header.header)))
+        .getOrElse {
+          Seq(header.header, ": ".asInstanceOf[ReactNode], edit.element(t))
+        }
     }
-  }
-
-  implicit def editField[K, V](
-    implicit edit: Edit[V]
-  ) = new Edit[FieldType[K, V]] {
-    override type Model = FieldType[K, edit.Model]
-
-    // TODO: create a component that takes the Model as a parameter
-    override def toModel(t: FieldType[K, V]): FieldType[K, edit.Model] = {
-      field[K](edit.toModel(t))
-    }
-
-    override def empty: FieldType[K, edit.Model] = field[K](edit.empty)
-
-    override def element(t: Model): ReactNode = edit.element(t)
   }
 
   // how do we make certain fields not editable?
@@ -116,7 +214,7 @@ object Edit {
   // one thing that does is it allows the compiler to show an error
   // at the time the implicit is explicitly defined
   // where the model is declared, rather than where it's used
-  implicit def classEdit[T, L <: HList, E <: HList](
+  implicit def editClass[T, L <: HList, E <: HList](
     implicit
     l: ClassGeneric.Aux[T, L],
     e: Edit.Aux[L, E]
@@ -127,6 +225,8 @@ object Edit {
 
     // TODO: create a component that takes the Model as a parameter
     override def empty: E = e.empty
+
+    override def component(t: E): Option[ReqProps[MuiTextField, Unit, Unit, TopNode]] = None
 
     override def element(t: E): ReactNode = e.element(t)
   }
@@ -146,17 +246,22 @@ object Edit {
     // TODO: create a component that takes the Model as a parameter
     override def empty: M = edit2.empty
 
+    override def component(t: M) = None
+
     override def element(t: M) = {
       // TODO: we should be using a grid system here rather than a table
       val elements = edit2.elements(t)
+      // TODO: figure out whether we really need keys here
+      val rand = new Random
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
             MuiTableBody(displayRowCheckbox = false)(
-              elements.grouped(2) map { case Seq(l, r) =>
-                MuiTableRow(displayBorder = false)(
-                  MuiTableRowColumn()(l),
-                  MuiTableRowColumn()(r)
+              elements.grouped(2) map { seq =>
+                MuiTableRow(key = rand.nextString(5), displayBorder = false)(
+                  seq map { e =>
+                    MuiTableRowColumn(key = rand.nextString(5))(e)
+                  }
                 )
               }
             )
@@ -213,12 +318,6 @@ object Edit {
   //val editContactModel = Derive[Contact].apply.apply(_.map(wrapper))
 
   //editContactModel.create()
-
-  object headerPoly extends Poly1 {
-    implicit def foo[T]
-    (implicit
-      header: Header[T]) = at[T] { t => header.header }
-  }
 
   trait Create[T]
 

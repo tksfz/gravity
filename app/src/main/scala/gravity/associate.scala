@@ -1,6 +1,7 @@
 package gravity
 
-import app.models.{Contact, One}
+import app.models.{Contact}
+import gravity.models.One
 
 /**
   * TODO:

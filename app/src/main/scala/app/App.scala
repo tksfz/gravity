@@ -7,6 +7,7 @@ import gravity.ui.Edit._
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._
+import gravity.models.{ObjectId, OneId}
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
@@ -19,11 +20,14 @@ import shapeless._
 import models._
 import shapeless.record._
 import shapeless.syntax.singleton._
+import cats.instances.all._
 
 object App extends JSApp {
 
-  private[this] def component[T](t: T)(implicit g: Edit[T]) = {
-    val content: ReactNode = g.element(g.toModel(t))
+  import EnableRelaxedImplicits._
+
+  private[this] def component[T](t: T)(implicit g: View[T]) = {
+    val content: ReactNode = g.view(t) // g.element(g.toModel(t))
     WithAsyncScript("assets/material_ui-bundle.js") {
       MuiMuiThemeProvider()(
         <.div(
@@ -51,9 +55,11 @@ object App extends JSApp {
     AppCSS.load()
     //val comp = component(Account(3, "John Smith", 4))
     //val comp = component(Contact("Mary", "Johnson"))
-    val generic = LabelledGeneric[Contact].to(Contact("Mary", "Smith")).merge(('fullName ->> defFullName) :: HNil)
+    val user = User(ObjectId(1), "harry@potter.com", "hpotter", "Harry Potter")
+    val contact = Contact(ObjectId(1), OneId(ObjectId(1)), "Washington")
+    val generic = LabelledGeneric[Contact].to(contact).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
-    val comp = component(Contact("Mary", "Smith"))
+    val comp = component(contact)
     ReactDOM.render(comp, dom.document.getElementById("container"))
   }
 }

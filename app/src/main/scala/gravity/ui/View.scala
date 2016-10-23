@@ -1,131 +1,185 @@
 package gravity.ui
 
-import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn}
+import cats.kernel.Monoid
+import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
+import gravity.ClassGeneric
 import gravity.methods._
-import japgolly.scalajs.react.{ReactComponentB, ReactNode}
+import gravity.util.Poly1WithDefault
+import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import shapeless._
 import shapeless.labelled._
-import shapeless.ops.hlist.{Mapper, ToTraversable, ZipConst}
+import shapeless.ops.hlist.{LiftAll, Mapper, ToTraversable, ZipConst}
+import shapeless.ops.record.Selector
 import shapeless.tag.@@
+import japgolly.scalajs.react.vdom.EmptyTag
 
-// come up with a better name than Label
-// FieldHeader or FieldLabel? header is fine actually.  it doesn't have to be just a field header
-// e.g. it could be a tab header
-// this should possibly just be pushed to the View typeclass
-// primitives don't have obvious headers though:  String, Int, etc.  only fields and more complex objects do?
-trait Header[T] {
-  def header: ReactNode
-}
+import scalajs.js
+import chandu0101.scalajs.react.components.Implicits._
+import japgolly.scalajs.react.ReactComponentC.DefaultProps
+
+import scala.reflect.ClassTag
+import scala.scalajs.js.UndefOr
+
 
 /**
-  * Some questions to think about:
-  * How do we handle, say at the data model level, foreign key lookups and displaying the name of the reference?
-  *   (1) One[T] can resolve to a name - how do we represent that?  Transformations over the record representation.
-  *   (2) do we have some kind of name_denorm system?               Maybe.
-  *   (3) How does the View reach back to the query and say:  I want this data?
+  * Typeclass for displaying a data type T as a ReactNode. T could be a primitive type or a
+  * complex type (case class). You can consider the View for a case class as a "detail" page.
   *
-  *   The answer to (3) is it doesn't.  The data drives the view, not the other way around.
-  *   Maybe as a convenience there's a consolidated way to derive a Query from a View.
+  * Note that Views are limited to displaying the data received. There's no mechanism for
+  * fetching more data from within a View. Thus, the model dictates display. To customize
+  * the display of a model, there are three approaches:
   *
-  *   For (1) we need a sophistcated system of "model derivation" or "model transformation":
-  *
-  *   Starting with one model, transform it into another by adding fields, changing data types, etc.
-  * @tparam T
+  * (1) The model needs to be transformed into particular types (that drive implicit
+  *     selection)
+  * (2) A ViewCustomizer typeclass instance allows tweaks to the generic view
+  * (3) The model can declare its own typeclass instance rather than relying on generic
+  *     derivation. It can still call out to the standard typeclass instances if it so
+  *     desires.
   */
-trait View[-T] {
-  def view(t: T): ReactNode
-  // def header?
-  // def asString
-  // def toReactElement
-  // def inTable etc.
-  // def withField
-  //def edit[P, S, B, N](t: T): ReactComponentU[P, S, B, N]
+trait View[T] {
+  // alternatively makes this return a ReactComponentC[UndefOr[T]]?
+  def view(t: UndefOr[T]): ReactNode
+
+  def emptyView: ReactNode = view(js.undefined)
 }
 
-object View {
+trait ComponentBasedView[T] extends View[T] {
+  def component(t: UndefOr[T]): ReactComponentC.DefaultProps[UndefOr[ReactNode], Unit, Unit, TopNode]
 
-  /*
-trait Renderable {
-def toString: String // for use in attributes
-def toReactElement: ReactElement
-// also could have options in lists
-// detail views, list views
+  def emptyComponent = component(js.undefined)
+
+  def view(t: UndefOr[T]) = component(t)()
 }
- */
 
-  // TODO: Detail[T]?
-  // Actually for a case class C, View[C] is the detail view
-  // while View[FieldType[?, C] @@ D] is the field view
-  // well we should have a foreign key type e.g. One[C] anyway
-
-  implicit object StringView extends View[String] {
-    override def view(t: String): ReactNode = t
+trait RelaxedViewImplicits {
+  implicit def defaultView[T]
+  (implicit
+    relax: RelaxedImplicits,
+    classTag: ClassTag[T]) = new View[T] {
+    override def view(t: UndefOr[T]): ReactNode =
+      Seq(classTag.toString, "(no View instance found): ", t.map(_.toString).getOrElse(""))
+      // TODO: mouseover describing the type
   }
 
-  implicit object IntView extends View[Int] {
-    def view(n: Int) = n.toString
+}
+
+object View extends RelaxedViewImplicits {
+
+  implicit object StringView extends View[String] with ComponentBasedView[String] {
+    override def component(t: UndefOr[String]) = {
+      //val str = t.getOrElse("")
+      //tf.copy(id = rand.nextString(6), defaultValue = str)
+      ReactComponentB[UndefOr[ReactNode]]("blah")
+        .render(P => MuiTextField(floatingLabelText = P.props, floatingLabelFixed = true,
+          defaultValue = t, underlineShow = false)())
+        .build
+        .withDefaultProps(js.undefined)
+    }
   }
 
-  implicit def headerFromLabel[T](implicit label: Label[T]) = new Header[T] {
-    override def header: ReactNode = label.label
+  implicit object IntView extends View[Int] with ComponentBasedView[Int] {
+    override def component(t: UndefOr[Int]) = {
+      //val str = t.getOrElse("")
+      //tf.copy(id = rand.nextString(6), defaultValue = str)
+      val str = t.map(_.toString)
+      ReactComponentB[UndefOr[ReactNode]]("blah")
+        .render(P => MuiTextField(floatingLabelText = P.props, defaultValue = str, disabled = true, underlineShow = false)())
+        .build
+        .withDefaultProps(js.undefined)
+    }
   }
 
+  import js.JSConverters._
+
+  implicit def optionComponentBasedView[T](implicit v: View[T] with ComponentBasedView[T]) =
+    new View[Option[T]] with ComponentBasedView[Option[T]] {
+      override def component(t: UndefOr[Option[T]]) = v.component(t.map(_.orUndefined).flatten)
+    }
+
+  implicit def optionView[T](implicit v: View[T]) =
+    new View[Option[T]] {
+      override def view(t: UndefOr[Option[T]]): ReactNode = v.view(t.map(_.orUndefined).flatten)
+    }
+
+  implicit def viewClassTaggedField[K, V, M, C](
+    implicit v: View[V],
+    header: Header[FieldType[K, V] @@ C]
+  ) = new View[FieldType[K, V] @@ C] {
+    override def view(t: UndefOr[@@[FieldType[K, V], C]]): ReactNode = {
+      v match {
+        case hc: ComponentBasedView[V @unchecked] =>
+          hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
+        case _ =>
+          val n: ReactNode = Seq(header.header, ": ".asInstanceOf[ReactNode], v.view(t))
+          n
+      }
+    }
+  }
   // Should we actually be making this implicit be available by default?
   // For certain datatypes, we want them to be treated like a single field
   // rather than exposing its sub-fields
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
-  implicit def makeTableView[L <: HList, LL <: HList, O <: HList]
+  implicit def makeTableView[L <: HList, O <: HList, V <: HList]
   (implicit
-    zippy: ZipConst.Aux[L, L, LL],
-    mapper: Mapper.Aux[accessThenView.type, LL, O],
-    //mapper: Mapper.Aux[headerAndView.type, L, O]
-    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]) = new View[L] {
-    def view(l: L): ReactNode = {
-      val fieldElems: List[(ReactNode, ReactNode)] =
-        ((l zipConst l) map accessThenView).toList
-      val mui =
-        ReactComponentB[Unit]("blah")
-          .render(_ =>
-            MuiTable()(
-              MuiTableBody(displayRowCheckbox = false)(
-                fieldElems map { case (l, r) =>
-                  MuiTableRow()(
-                    MuiTableRowColumn()(l),
-                    MuiTableRowColumn()(r)
-                  )
-                }
-              )
+    mapper: Mapper.Aux[headerAndView.type, L, O],
+    trav: ToTraversable.Aux[O, List, ReactNode],
+    liftAll: LiftAll.Aux[View, L, V],
+    trav2: ToTraversable.Aux[V, List, View[_]]
+  ) = new View[L] {
+    def view(l: UndefOr[L]): ReactNode = {
+      val elements: List[ReactNode] =
+        l map { l =>
+          (l map headerAndView).toList
+        } getOrElse {
+          liftAll.instances.toList.map(_.emptyView)
+        }
+      ReactComponentB[Unit]("blah")
+        .render(_ =>
+          MuiTable(selectable = false)(
+            MuiTableBody(displayRowCheckbox = false)(
+              elements.grouped(2) map { seq =>
+                MuiTableRow(displayBorder = false)(
+                  seq map { e =>
+                    MuiTableRowColumn()(e)
+                  }
+                )
+              }
             )
           )
-          .build
-      mui()
+        )
+        .build
+        .apply()
     }
   }
 
-  // TODO: add a default so some fields can be skipped.  use Poly1WithDefault
-  object headerAndView extends Poly1 {
-    implicit def headerAndView[T]
-    (implicit
-      header: Header[T], view: View[T]) = at[T] { t =>
-      (header.header, view.view(t))
+  implicit def classView[T, L <: HList]
+  (implicit
+    l: ClassGeneric.Aux[T, L],
+    v: View[L]) = new View[T] {
+    override def view(t: UndefOr[T]): ReactNode = v.view(t.map(l.to))
+  }
+}
+
+object headerAndView extends Poly1 {
+
+  import View._
+  /**
+    * For some reason, the View[FieldType..] instance doesn't seem to be able to pick up
+    * the View[V] instances. So we pick up both here, and use whatever works.
+    */
+  implicit def view[C, K, V]
+  (implicit
+    header: Header[FieldType[K, V] @@ C],
+    v: View[V],
+    view: View[FieldType[K, V] @@ C]) = at[FieldType[K, V] @@ C] { t =>
+    v match {
+      case hc: ComponentBasedView[V @unchecked] =>
+        hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
+      case _ =>
+        val n: ReactNode = view.view(t)
+        n
     }
   }
-
-  object accessThenView extends Poly1 {
-
-    // Note that T and V are free
-    implicit def accessThenView[T, L <: HList, K, V, R](
-      implicit
-      access: Access.Aux[L, K, R],
-      header: Header[FieldType[K, R] @@ T],
-      v: View[FieldType[K, R] @@ T]
-    ) = at[(FieldType[K, V] @@ T, L)] {
-      case (fieldValue, l) =>
-        val f = tag[T](field[K](access(l)))
-        (header.header, v.view(f))
-    }
-  }
-
 }

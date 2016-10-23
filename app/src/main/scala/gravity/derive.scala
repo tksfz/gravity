@@ -1,6 +1,6 @@
 package gravity
 
-import app.models.One
+import gravity.models.One
 import shapeless._
 import shapeless.ops.record._
 
