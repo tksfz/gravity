@@ -7,9 +7,8 @@
 ## Installation
 ```bash
 sbt app/fastOptJS
-pushd app
+cd app
 npm install
 npm start
-popd
 ```
 and go to [http://localhost:8090/](http://localhost:8090/).
