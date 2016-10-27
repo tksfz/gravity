@@ -36,18 +36,9 @@ import scala.scalajs.js.UndefOr
   *     desires.
   */
 trait View[T] {
-  // alternatively makes this return a ReactComponentC[UndefOr[T]]?
-  def view(t: UndefOr[T]): ReactNode
+  // alternatively makes this return a ReactComponentC[T]?
 
-  def emptyView: ReactNode = view(js.undefined)
-}
-
-trait ComponentBasedView[T] extends View[T] {
-  def component(t: UndefOr[T]): ReactComponentC.DefaultProps[UndefOr[ReactNode], Unit, Unit, TopNode]
-
-  def emptyComponent = component(js.undefined)
-
-  def view(t: UndefOr[T]) = component(t)()
+  def view(t: T): ReactNode
 }
 
 trait RelaxedViewImplicits {
@@ -55,8 +46,8 @@ trait RelaxedViewImplicits {
   (implicit
     relax: RelaxedImplicits,
     classTag: ClassTag[T]) = new View[T] {
-    override def view(t: UndefOr[T]): ReactNode =
-      Seq(classTag.toString, "(no View instance found): ", t.map(_.toString).getOrElse(""))
+    override def view(t: T): ReactNode =
+      Seq(classTag.toString, "(no View instance found): ", t.toString)
       // TODO: mouseover describing the type
   }
 
@@ -64,56 +55,30 @@ trait RelaxedViewImplicits {
 
 object View extends RelaxedViewImplicits {
 
-  implicit object StringView extends View[String] with ComponentBasedView[String] {
-    override def component(t: UndefOr[String]) = {
-      //val str = t.getOrElse("")
-      //tf.copy(id = rand.nextString(6), defaultValue = str)
-      ReactComponentB[UndefOr[ReactNode]]("blah")
-        .render(P => MuiTextField(floatingLabelText = P.props, floatingLabelFixed = true,
-          defaultValue = t, underlineShow = false)())
-        .build
-        .withDefaultProps(js.undefined)
-    }
+  implicit object StringView extends View[String] {
+    override def view(t: String): ReactNode = t
   }
 
-  implicit object IntView extends View[Int] with ComponentBasedView[Int] {
-    override def component(t: UndefOr[Int]) = {
-      //val str = t.getOrElse("")
-      //tf.copy(id = rand.nextString(6), defaultValue = str)
-      val str = t.map(_.toString)
-      ReactComponentB[UndefOr[ReactNode]]("blah")
-        .render(P => MuiTextField(floatingLabelText = P.props, defaultValue = str, disabled = true, underlineShow = false)())
-        .build
-        .withDefaultProps(js.undefined)
-    }
+  implicit object IntView extends View[Int] {
+    override def view(t: Int): ReactNode = t.toString
   }
 
   import js.JSConverters._
 
-  implicit def optionComponentBasedView[T](implicit v: View[T] with ComponentBasedView[T]) =
-    new View[Option[T]] with ComponentBasedView[Option[T]] {
-      override def component(t: UndefOr[Option[T]]) = v.component(t.map(_.orUndefined).flatten)
-    }
-
   implicit def optionView[T](implicit v: View[T]) =
     new View[Option[T]] {
-      override def view(t: UndefOr[Option[T]]): ReactNode = v.view(t.map(_.orUndefined).flatten)
+      override def view(t: Option[T]): ReactNode = t.map(v.view).getOrElse("")
     }
 
   implicit def viewClassTaggedField[K, V, M, C](
     implicit v: View[V],
     header: Header[FieldType[K, V] @@ C]
   ) = new View[FieldType[K, V] @@ C] {
-    override def view(t: UndefOr[@@[FieldType[K, V], C]]): ReactNode = {
-      v match {
-        case hc: ComponentBasedView[V @unchecked] =>
-          hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
-        case _ =>
-          val n: ReactNode = Seq(header.header, ": ".asInstanceOf[ReactNode], v.view(t))
-          n
-      }
+    override def view(t: @@[FieldType[K, V], C]): ReactNode = {
+      Seq(header.header, ": ".asInstanceOf[ReactNode], v.view(t))
     }
   }
+
   // Should we actually be making this implicit be available by default?
   // For certain datatypes, we want them to be treated like a single field
   // rather than exposing its sub-fields
@@ -127,13 +92,8 @@ object View extends RelaxedViewImplicits {
     liftAll: LiftAll.Aux[View, L, V],
     trav2: ToTraversable.Aux[V, List, View[_]]
   ) = new View[L] {
-    def view(l: UndefOr[L]): ReactNode = {
-      val elements: List[ReactNode] =
-        l map { l =>
-          (l map headerAndView).toList
-        } getOrElse {
-          liftAll.instances.toList.map(_.emptyView)
-        }
+    def view(l: L): ReactNode = {
+      val elements: List[ReactNode] = (l map headerAndView).toList
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
@@ -157,7 +117,7 @@ object View extends RelaxedViewImplicits {
   (implicit
     l: ClassGeneric.Aux[T, L],
     v: View[L]) = new View[T] {
-    override def view(t: UndefOr[T]): ReactNode = v.view(t.map(l.to))
+    override def view(t: T): ReactNode = v.view(l.to(t))
   }
 }
 
@@ -173,12 +133,6 @@ object headerAndView extends Poly1 {
     header: Header[FieldType[K, V] @@ C],
     v: View[V],
     view: View[FieldType[K, V] @@ C]) = at[FieldType[K, V] @@ C] { t =>
-    v match {
-      case hc: ComponentBasedView[V @unchecked] =>
-        hc.component(t)(Some(header.header.asInstanceOf[UndefOr[ReactNode]]))
-      case _ =>
-        val n: ReactNode = view.view(t)
-        n
+      view.view(t)
     }
-  }
 }
