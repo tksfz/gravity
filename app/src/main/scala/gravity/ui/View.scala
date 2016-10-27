@@ -75,7 +75,7 @@ object View extends RelaxedViewImplicits {
     header: Header[FieldType[K, V] @@ C]
   ) = new View[FieldType[K, V] @@ C] {
     override def view(t: @@[FieldType[K, V], C]): ReactNode = {
-      Seq(header.header, ": ".asInstanceOf[ReactNode], v.view(t))
+      v.view(t)
     }
   }
 
@@ -88,21 +88,26 @@ object View extends RelaxedViewImplicits {
   implicit def makeTableView[L <: HList, O <: HList, V <: HList]
   (implicit
     mapper: Mapper.Aux[headerAndView.type, L, O],
-    trav: ToTraversable.Aux[O, List, ReactNode],
+    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)],
     liftAll: LiftAll.Aux[View, L, V],
     trav2: ToTraversable.Aux[V, List, View[_]]
   ) = new View[L] {
     def view(l: L): ReactNode = {
-      val elements: List[ReactNode] = (l map headerAndView).toList
+      val elements: List[(ReactNode, ReactNode)] = (l map headerAndView).toList
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
             MuiTableBody(displayRowCheckbox = false)(
               elements.grouped(2) map { seq =>
+                // Four column view: 2 columns of (field header + field value)
                 MuiTableRow(displayBorder = false)(
-                  seq map { e =>
-                    MuiTableRowColumn()(e)
-                  }
+                  (seq flatMap { case (h, e) =>
+                    Seq(
+                      MuiTableRowColumn(style = js.Dynamic.literal("textAlign" -> "right"))(h),
+                      MuiTableRowColumn()(e)
+                    )
+                  }) :+ MuiTableRowColumn()()
+                  // fifth empty column evens out the whitespace on the rhs with the lhs
                 )
               }
             )
@@ -133,6 +138,6 @@ object headerAndView extends Poly1 {
     header: Header[FieldType[K, V] @@ C],
     v: View[V],
     view: View[FieldType[K, V] @@ C]) = at[FieldType[K, V] @@ C] { t =>
-      view.view(t)
+      (header.header, view.view(t))
     }
 }
