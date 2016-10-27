@@ -1,6 +1,6 @@
 package gravity.ui
 
-import java.time.{LocalDate}
+import java.time.LocalDate
 import java.util.Date
 
 import chandu0101.scalajs.react.components.materialui.{MuiDatePicker, MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
@@ -12,9 +12,11 @@ import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopN
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
 import shapeless.labelled.FieldType
+import shapeless.ops.hlist.{LiftAll, Mapper, ToTraversable, Zip}
 import shapeless.tag.@@
 
 import scala.reflect.ClassTag
+import scala.scalajs.js
 import scala.util.Random
 
 /**
@@ -201,14 +203,8 @@ object Edit extends RelaxedEditImplicits {
 
     override def empty: FieldType[K, edit.Model] @@ C = tag[C](field[K](edit.empty))
 
-    //override def component(t: @@[FieldType[K, M], C]) = edit.component(t)
-
     override def element(t: Model): ReactNode = {
-      //edit.component(t)
-        //.map(_.apply(MuiTextField(floatingLabelText = header.header)))
-        //.getOrElse {
-      Seq(header.header, ": ".asInstanceOf[ReactNode], edit.element(t))
-        //}
+      edit.element(t)
     }
   }
 
@@ -240,7 +236,9 @@ object Edit extends RelaxedEditImplicits {
   // e.g. we can't iterate over L to get headers
   implicit def hlistEdit[L <: HList, O <: HList, M <: HList, H <: HList](
     implicit
-    edit2: Edit2.Aux[L, M]
+    edit2: Edit2.Aux[L, M],
+    mapper: Mapper.Aux[getHeaders.type, M, H],
+    trav: ToTraversable.Aux[H, List, ReactNode]
   ) = new Edit[L] {
     override type Model = M
 
@@ -251,6 +249,7 @@ object Edit extends RelaxedEditImplicits {
 
     override def element(t: M) = {
       // TODO: we should be using a grid system here rather than a table
+      val headers = trav.apply(t map getHeaders)
       val elements = edit2.elements(t)
       // TODO: figure out whether we really need keys here
       val rand = new Random
@@ -258,11 +257,16 @@ object Edit extends RelaxedEditImplicits {
         .render(_ =>
           MuiTable(selectable = false)(
             MuiTableBody(displayRowCheckbox = false)(
-              elements.grouped(2) map { seq =>
+              // Four column view: 2 columns of (field header + field edit widget)
+              (headers zip elements).grouped(2) map { seq =>
                 MuiTableRow(key = rand.nextString(5), displayBorder = false)(
-                  seq map { e =>
-                    MuiTableRowColumn(key = rand.nextString(5))(e)
-                  }
+                  (seq flatMap { case (h, e) =>
+                    Seq(
+                      MuiTableRowColumn(key = rand.nextString(5),
+                        style = js.Dynamic.literal("textAlign" -> "right"))(h),
+                      MuiTableRowColumn(key = rand.nextString(5))(e))
+                  }) :+ MuiTableRowColumn()()
+                  // fifth empty column evens out the whitespace on the rhs with the lhs
                 )
               }
             )
@@ -271,6 +275,10 @@ object Edit extends RelaxedEditImplicits {
         .build
         .apply()
     }
+  }
+
+  object getHeaders extends Poly1 {
+    implicit def get[T](implicit e: Header[T]) = at[T] { _ => e.header }
   }
 
   // I can't come up with a better way to do this
@@ -312,13 +320,6 @@ object Edit extends RelaxedEditImplicits {
       def elements(t: hedit.Model :: TM) = hedit.element(t.head) +: tedit.elements(t.tail)
     }
   }
-
-  //import shapeless.ops.record._
-
-  //val editContactModel = Edit[Contact]//.derived
-  //val editContactModel = Derive[Contact].apply.apply(_.map(wrapper))
-
-  //editContactModel.create()
 
   trait Create[T]
 
