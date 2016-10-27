@@ -3,16 +3,14 @@ package gravity.ui
 import java.time.LocalDate
 import java.util.Date
 
-import chandu0101.scalajs.react.components.materialui.{MuiDatePicker, MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
+import chandu0101.scalajs.react.components.materialui._
 import chandu0101.scalajs.react.components.Implicits._
 import gravity.ClassGeneric
-import gravity.models.{One, OneId, Phone}
-import japgolly.scalajs.react.ReactComponentC.ReqProps
+import gravity.models.{One, OneId}
 import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import japgolly.scalajs.react.vdom.prefix_<^._
 import shapeless._
-import shapeless.labelled.FieldType
-import shapeless.ops.hlist.{LiftAll, Mapper, ToTraversable, Zip}
+import shapeless.ops.hlist.{Mapper, ToTraversable}
 import shapeless.tag.@@
 
 import scala.reflect.ClassTag
