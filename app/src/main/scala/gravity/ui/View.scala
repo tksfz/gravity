@@ -38,7 +38,7 @@ import scala.scalajs.js.UndefOr
 trait View[T] {
   // alternatively makes this return a ReactComponentC[T]?
 
-  def view(t: T): ReactNode
+  def view(t: T): ReactNode // ReactElement?
 }
 
 trait RelaxedViewImplicits {
