@@ -11,7 +11,7 @@ import gravity.models.{ObjectId, OneId, Phone}
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.router.{BaseUrl, Redirect, Router, RouterConfigDsl}
+import japgolly.scalajs.react.extra.router.{BaseUrl, Redirect, Resolution, Router, RouterConfigDsl, RouterCtl}
 import org.scalajs.dom
 
 import scala.scalajs.js
@@ -26,21 +26,6 @@ object App extends JSApp {
 
   import EnableRelaxedImplicits._
 
-  private[this] def component[T](t: T)(implicit g: Edit[T]) = {
-    val content: ReactNode = g.element(g.toModel(t))
-    WithAsyncScript("assets/material_ui-bundle.js") {
-      MuiMuiThemeProvider()(
-        <.div(
-          MuiAppBar(
-            title = "Title",
-            showMenuIconButton = true
-          )(),
-          <.div(content)
-        )
-      )
-    }
-  }
-
   case object Home extends AnyPage
   case object RouteNotFound extends AnyPage
 
@@ -49,6 +34,21 @@ object App extends JSApp {
       <.div("Welcome Home")
     )
     .build
+
+
+  def layout(c: RouterCtl[AnyPage], r: Resolution[AnyPage]) = {
+    WithAsyncScript("assets/material_ui-bundle.js") {
+      MuiMuiThemeProvider()(
+        <.div(
+          MuiAppBar(
+            title = "Title",
+            showMenuIconButton = true
+          )(),
+          <.div(r.render())
+        )
+      )
+    }
+  }
 
   // top level schema with
   // Many[Account] :: Many[Contact]
@@ -68,7 +68,6 @@ object App extends JSApp {
     val contact = Contact(ObjectId(1), OneId(ObjectId(1)), "Washington", Some("Mary"), title = Some("Senior Engineer"), mobilePhone = Some(Phone("(415) 555-2121")))
     val generic = LabelledGeneric[Contact].to(contact).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
-    val comp = component(contact)
 
     val routerConfig = RouterConfigDsl[AnyPage].buildConfig { dsl =>
       import dsl._
@@ -78,6 +77,7 @@ object App extends JSApp {
         | ClassRoutes.standardRoutes[Contact].routes(dsl)
         ).notFound(redirectToPage(RouteNotFound)(Redirect.Replace))
     }
+      .renderWith(layout)
 
     val router = Router(BaseUrl.fromWindowOrigin_/, routerConfig)
 
