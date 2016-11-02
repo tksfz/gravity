@@ -20,7 +20,7 @@ trait AnyPage
   * This just allows routes to brought in when the top-level classes are passed to App.main()
   */
 trait ClassRoutes[T] {
-  def routes: RouterConfigDsl[AnyPage] => Rule[AnyPage]
+  def routes: Rule[AnyPage]
 }
 
 object ClassRoutes {
@@ -50,8 +50,8 @@ object ClassRoutes {
   (implicit
     ct: ClassTag[T],
     get: Get[T],
-    v: View[T]): RouterConfigDsl[AnyPage] => Rule[AnyPage] = {
-    dsl: RouterConfigDsl[AnyPage] =>
+    v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
+    dsl =>
       val DetailPage = ReactComponentB[Int]("detailpage")
         .initialState(Option.empty[T])
         .render(P => P.state map { t =>
