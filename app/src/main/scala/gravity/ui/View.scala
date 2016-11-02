@@ -2,22 +2,18 @@ package gravity.ui
 
 import chandu0101.scalajs.react.components.materialui.{MuiTable, MuiTableBody, MuiTableRow, MuiTableRowColumn, MuiTextField}
 import gravity.ClassGeneric
-import gravity.methods._
-import gravity.util.Poly1WithDefault
 import japgolly.scalajs.react.{ReactComponentB, ReactComponentC, ReactNode, TopNode}
 import shapeless._
 import shapeless.labelled._
 import shapeless.ops.hlist.{LiftAll, Mapper, ToTraversable, ZipConst}
-import shapeless.ops.record.Selector
 import shapeless.tag.@@
 import japgolly.scalajs.react.vdom.EmptyTag
 
 import scalajs.js
 import chandu0101.scalajs.react.components.Implicits._
-import japgolly.scalajs.react.ReactComponentC.DefaultProps
+import japgolly.scalajs.react.extra.router.RouterCtl
 
 import scala.reflect.ClassTag
-import scala.scalajs.js.UndefOr
 
 
 /**
@@ -38,7 +34,7 @@ import scala.scalajs.js.UndefOr
 trait View[T] {
   // alternatively makes this return a ReactComponentC[T]?
 
-  def view(t: T): ReactNode // ReactElement?
+  def view(router: RouterCtl[AnyPage], t: T): ReactNode // ReactElement?
 }
 
 trait RelaxedViewImplicits {
@@ -46,7 +42,7 @@ trait RelaxedViewImplicits {
   (implicit
     relax: RelaxedImplicits,
     classTag: ClassTag[T]) = new View[T] {
-    override def view(t: T): ReactNode =
+    override def view(router: RouterCtl[AnyPage], t: T): ReactNode =
       Seq(classTag.toString, "(no View instance found): ", t.toString)
       // TODO: mouseover describing the type
   }
@@ -56,26 +52,26 @@ trait RelaxedViewImplicits {
 object View extends RelaxedViewImplicits {
 
   implicit object StringView extends View[String] {
-    override def view(t: String): ReactNode = t
+    override def view(router: RouterCtl[AnyPage], t: String): ReactNode = t
   }
 
   implicit object IntView extends View[Int] {
-    override def view(t: Int): ReactNode = t.toString
+    override def view(router: RouterCtl[AnyPage], t: Int): ReactNode = t.toString
   }
 
   import js.JSConverters._
 
   implicit def optionView[T](implicit v: View[T]) =
     new View[Option[T]] {
-      override def view(t: Option[T]): ReactNode = t.map(v.view).getOrElse("")
+      override def view(router: RouterCtl[AnyPage], t: Option[T]): ReactNode = t.map((t: T) => v.view(router, t)).getOrElse("")
     }
 
   implicit def viewClassTaggedField[K, V, M, C](
     implicit v: View[V],
     header: Header[FieldType[K, V] @@ C]
   ) = new View[FieldType[K, V] @@ C] {
-    override def view(t: @@[FieldType[K, V], C]): ReactNode = {
-      v.view(t)
+    override def view(router: RouterCtl[AnyPage], t: @@[FieldType[K, V], C]): ReactNode = {
+      v.view(router, t)
     }
   }
 
@@ -85,15 +81,16 @@ object View extends RelaxedViewImplicits {
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
-  implicit def makeTableView[L <: HList, O <: HList, V <: HList]
+  implicit def makeTableView[L <: HList, LR <: HList, O <: HList, V <: HList]
   (implicit
-    mapper: Mapper.Aux[headerAndView.type, L, O],
+    lr: ZipConst.Aux[RouterCtl[_], L, LR],
+    mapper: Mapper.Aux[headerAndView.type, LR, O],
     trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)],
     liftAll: LiftAll.Aux[View, L, V],
     trav2: ToTraversable.Aux[V, List, View[_]]
   ) = new View[L] {
-    def view(l: L): ReactNode = {
-      val elements: List[(ReactNode, ReactNode)] = (l map headerAndView).toList
+    def view(router: RouterCtl[AnyPage], l: L): ReactNode = {
+      val elements: List[(ReactNode, ReactNode)] = (lr(router, l) map headerAndView).toList
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
@@ -122,7 +119,7 @@ object View extends RelaxedViewImplicits {
   (implicit
     l: ClassGeneric.Aux[T, L],
     v: View[L]) = new View[T] {
-    override def view(t: T): ReactNode = v.view(l.to(t))
+    override def view(router: RouterCtl[AnyPage], t: T): ReactNode = v.view(router, l.to(t))
   }
 }
 
@@ -137,7 +134,7 @@ object headerAndView extends Poly1 {
   (implicit
     header: Header[FieldType[K, V] @@ C],
     v: View[V],
-    view: View[FieldType[K, V] @@ C]) = at[FieldType[K, V] @@ C] { t =>
-      (header.header, view.view(t))
+    view: View[FieldType[K, V] @@ C]) = at[(FieldType[K, V] @@ C, RouterCtl[AnyPage])] { case (t, router) =>
+      (header.header, view.view(router, t))
     }
 }

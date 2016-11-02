@@ -3,7 +3,7 @@ package gravity.ui
 import apiclient.Get
 import japgolly.scalajs.react.{Callback, ReactComponentB, ReactNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
-import japgolly.scalajs.react.extra.router.RouterConfigDsl
+import japgolly.scalajs.react.extra.router.{RouterConfigDsl, RouterCtl}
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import scala.reflect.ClassTag
@@ -56,10 +56,10 @@ object ClassRoutes {
     v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val DetailPageComponent = GetBasedPageComponent[T](v.view(_))
+      val DetailPageComponent = GetBasedPageComponent[T](v.view(_, _))
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
-        dynRender((x: Detail[T]) => DetailPageComponent(x.id))
+        dynRenderR((x: Detail[T], router) => DetailPageComponent((router, x.id)))
   }
 
   def editRoute[T]
@@ -69,26 +69,26 @@ object ClassRoutes {
     e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val EditPageComponent = GetBasedPageComponent[T](t => e.element(e.toModel(t)))
+      val EditPageComponent = GetBasedPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
-        dynRender((x: EditPage[T]) => EditPageComponent(x.id))
+        dynRenderR((x: EditPage[T], router) => EditPageComponent((router, x.id)))
   }
 
   /**
     * ReactComponent for a Page that accepts an Id and uses a Get instance
     * to fetch that Id.
     */
-  def GetBasedPageComponent[T](fn: T => ReactNode)
+  def GetBasedPageComponent[T](fn: (RouterCtl[AnyPage], T) => ReactNode)
   (implicit ct: ClassTag[T], get: Get[T]) =
-    ReactComponentB[Int]("detailpage")
+    ReactComponentB[(RouterCtl[AnyPage], Int)]("detailpage")
       .initialState(Option.empty[T])
       .render(P => P.state map { t =>
-        <.div(fn(t))
+        <.div(fn(P.props._1, t))
       } getOrElse {
         <.div(s"${ct.runtimeClass.getSimpleName} ${P.props} not found")
       } render)
       .componentDidMount(P => Callback.future {
-        get.get(P.props).map(P.setState(_))
+        get.get(P.props._2).map(P.setState(_))
       })
       .build
 
