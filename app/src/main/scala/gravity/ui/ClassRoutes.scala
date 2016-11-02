@@ -1,7 +1,7 @@
 package gravity.ui
 
 import apiclient.Get
-import japgolly.scalajs.react.{Callback, ReactComponentB}
+import japgolly.scalajs.react.{Callback, ReactComponentB, ReactNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
 import japgolly.scalajs.react.extra.router.RouterConfigDsl
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -32,17 +32,20 @@ object ClassRoutes {
     * - I'm not sure if the ClassTag will work for doing that, but we'll have to try and see.
     */
   case class Detail[T : ClassTag](id: Int) extends AnyPage
+  case class EditPage[T : ClassTag](id: Int) extends AnyPage
 
   import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
   import japgolly.scalajs.react.vdom.Implicits._
 
   // TODO: use optional implicits
+  // TODO: change all references to ClassTag to use Label[T]
   implicit def standardRoutes[T]
   (implicit
     v: View[T],
+    e: Edit[T],
     get: Get[T],
     ct: ClassTag[T]) = new ClassRoutes[T] {
-    override def routes = viewRoute
+    override def routes = viewRoute | editRoute
   }
 
   // ClassTag is used to provide an api-name but we might need to do better
@@ -52,24 +55,42 @@ object ClassRoutes {
     get: Get[T],
     v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
-      val DetailPage = ReactComponentB[Int]("detailpage")
-        .initialState(Option.empty[T])
-        .render(P => P.state map { t =>
-            <.div(v.view(t))
-          } getOrElse {
-            <.div(s"${ct.runtimeClass.getSimpleName} ${P.props} not found")
-          } render
-        )
-        .componentDidMount(P => Callback.future {
-          get.get(P.props).map(P.setState(_))
-        }
-        )
-        .build
-
       import dsl._
+      val DetailPageComponent = GetBasedPageComponent[T](v.view(_))
 
-      dynamicRouteCT(("#/" ~ ct.runtimeClass.getSimpleName ~ "/" ~ int).caseClass[Detail[T]]) ~>
-        dynRender((x: Detail[T]) => DetailPage(x.id))
+      dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
+        dynRender((x: Detail[T]) => DetailPageComponent(x.id))
   }
+
+  def editRoute[T]
+  (implicit
+    ct: ClassTag[T],
+    get: Get[T],
+    e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule {
+    dsl =>
+      import dsl._
+      val EditPageComponent = GetBasedPageComponent[T](t => e.element(e.toModel(t)))
+      dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
+        dynRender((x: EditPage[T]) => EditPageComponent(x.id))
+  }
+
+  /**
+    * ReactComponent for a Page that accepts an Id and uses a Get instance
+    * to fetch that Id.
+    */
+  def GetBasedPageComponent[T](fn: T => ReactNode)
+  (implicit ct: ClassTag[T], get: Get[T]) =
+    ReactComponentB[Int]("detailpage")
+      .initialState(Option.empty[T])
+      .render(P => P.state map { t =>
+        <.div(fn(t))
+      } getOrElse {
+        <.div(s"${ct.runtimeClass.getSimpleName} ${P.props} not found")
+      } render)
+      .componentDidMount(P => Callback.future {
+        get.get(P.props).map(P.setState(_))
+      })
+      .build
+
 
 }
