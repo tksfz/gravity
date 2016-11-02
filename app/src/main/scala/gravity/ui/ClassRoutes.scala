@@ -1,12 +1,10 @@
 package gravity.ui
 
-import app.models.Contact
-import gravity.models.{ObjectId, OneId, Phone}
-import japgolly.scalajs.react.ReactComponentB
+import apiclient.Get
+import japgolly.scalajs.react.{Callback, ReactComponentB}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
 import japgolly.scalajs.react.extra.router.RouterConfigDsl
 import japgolly.scalajs.react.vdom.prefix_<^._
-import shapeless.{Poly, Poly0}
 
 import scala.reflect.ClassTag
 
@@ -25,14 +23,6 @@ trait ClassRoutes[T] {
   def routes: RouterConfigDsl[AnyPage] => Rule[AnyPage]
 }
 
-object AllData extends Poly0 {
-  implicit def cont = at[Option[Contact]] {
-    Some(Contact(ObjectId(1), OneId(ObjectId(1)), "Washington", Some("Mary"), title = Some("Senior Engineer"), mobilePhone = Some(Phone("(415) 555-2121"))))
-  }
-
-  implicit def default[T] = at[Option[T]] { None }
-}
-
 object ClassRoutes {
 
   /**
@@ -43,22 +33,23 @@ object ClassRoutes {
     */
   case class Detail[T : ClassTag](id: Int) extends AnyPage
 
+  import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
   import japgolly.scalajs.react.vdom.Implicits._
 
   // TODO: use optional implicits
   implicit def standardRoutes[T]
   (implicit
     v: View[T],
-    get: AllData.Case0[Option[T]],
+    get: Get[T],
     ct: ClassTag[T]) = new ClassRoutes[T] {
-    override def routes = viewRoute(ct, get, v)
+    override def routes = viewRoute
   }
 
   // ClassTag is used to provide an api-name but we might need to do better
   def viewRoute[T]
   (implicit
     ct: ClassTag[T],
-    get: AllData.Case0[Option[T]],
+    get: Get[T],
     v: View[T]): RouterConfigDsl[AnyPage] => Rule[AnyPage] = {
     dsl: RouterConfigDsl[AnyPage] =>
       val DetailPage = ReactComponentB[Int]("detailpage")
@@ -69,8 +60,9 @@ object ClassRoutes {
             <.div(s"${ct.runtimeClass.getSimpleName} ${P.props} not found")
           } render
         )
-        .componentDidMount(P =>
-          P.setState(AllData.apply[Option[T]])
+        .componentDidMount(P => Callback.future {
+          get.get(P.props).map(P.setState(_))
+        }
         )
         .build
 

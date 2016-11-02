@@ -50,6 +50,8 @@ object App extends JSApp {
     }
   }
 
+  import AllData._
+
   // top level schema with
   // Many[Account] :: Many[Contact]
   // or case class Schema(accounts: Many[Account], contacts: Many[Contact]) etc.
@@ -73,7 +75,7 @@ object App extends JSApp {
       import dsl._
       (emptyRule
         | staticRoute(root, Home) ~> render(homePage())
-        | staticRoute("#/noroute", RouteNotFound) ~> render(<.div("route not found"))
+        | staticRoute("#/noroute", RouteNotFound) ~> render(<.div("no matching route for request"))
         | ClassRoutes.standardRoutes[Contact].routes(dsl)
         ).notFound(redirectToPage(RouteNotFound)(Redirect.Replace))
     }
