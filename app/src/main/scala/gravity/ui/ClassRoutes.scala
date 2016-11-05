@@ -89,7 +89,7 @@ object ClassRoutes {
           P.state map { t =>
             fn(P.props._1, t)
           } getOrElse {
-            s"${ct.runtimeClass.getSimpleName} ${P.props} not found"
+            s"${ct.runtimeClass.getSimpleName} ${P.props._2} not found"
           }
         })
       .componentDidMount(P => Callback.future {

@@ -20,7 +20,11 @@ object AllData extends Poly0 {
     allData: AllData.Case0[Option[T]]) = new Get[T] {
     override def get(id: Int): Future[Option[T]] = {
       Future.successful {
-        allData.value(HNil)
+        if (id < 100) {
+          allData.value(HNil)
+        } else {
+          None
+        }
       }
     }
   }
