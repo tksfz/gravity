@@ -1,8 +1,9 @@
 package gravity
 
 import gravity.derive.Derive
-import gravity.ui.View
+import gravity.ui.{AnyPage, View}
 import japgolly.scalajs.react.ReactNode
+import japgolly.scalajs.react.extra.router.RouterCtl
 import shapeless._
 import shapeless.record._
 import shapeless.tag._
@@ -39,7 +40,7 @@ object query {
 
   // can we define implicits for a path-dependent type? yes we can
   implicit object RelatedContactsView extends View[relatedContacts.Out] {
-    override def view(t: relatedContacts.Out): ReactNode = ???
+    override def view(router: RouterCtl[AnyPage], t: relatedContacts.Out): ReactNode = ???
   }
 
 }

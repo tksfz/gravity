@@ -11,6 +11,7 @@ import gravity.models.{ObjectId, OneId, Phone}
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
+import japgolly.scalajs.react.extra.router.{BaseUrl, Redirect, Resolution, Router, RouterConfigDsl, RouterCtl}
 import org.scalajs.dom
 
 import scala.scalajs.js
@@ -25,20 +26,15 @@ object App extends JSApp {
 
   import EnableRelaxedImplicits._
 
-  private[this] def component[T](t: T)(implicit g: View[T]) = {
-    val content: ReactNode = g.view(t) // g.element(g.toModel(t))
-    WithAsyncScript("assets/material_ui-bundle.js") {
-      MuiMuiThemeProvider()(
-        <.div(
-          MuiAppBar(
-            title = "Title",
-            showMenuIconButton = true
-          )(),
-          <.div(content)
-        )
-      )
-    }
-  }
+  case object Home extends AnyPage
+  case object RouteNotFound extends AnyPage
+
+  val homePage = ReactComponentB[Unit]("home")
+    .render(P => <.div("Welcome Home"))
+    .build
+
+
+  import AllData._
 
   // top level schema with
   // Many[Account] :: Many[Contact]
@@ -58,7 +54,18 @@ object App extends JSApp {
     val contact = Contact(ObjectId(1), OneId(ObjectId(1)), "Washington", Some("Mary"), title = Some("Senior Engineer"), mobilePhone = Some(Phone("(415) 555-2121")))
     val generic = LabelledGeneric[Contact].to(contact).merge(('fullName ->> defFullName) :: HNil)
     val generic2 = Tagger[Contact].apply(generic)
-    val comp = component(contact)
-    ReactDOM.render(comp, dom.document.getElementById("container"))
+
+    val routerConfig = RouterConfigDsl[AnyPage].buildConfig { dsl =>
+      import dsl._
+      (emptyRule
+        | staticRoute(root, Home) ~> render(homePage())
+        | staticRoute("#/noroute", RouteNotFound) ~> render(<.div("no matching route for request"))
+        | ClassRoutes.standardRoutes[Contact].routes
+        ).notFound(redirectToPage(RouteNotFound)(Redirect.Replace))
+    }
+
+    val router = Router(BaseUrl.fromWindowOrigin_/, routerConfig)
+
+    ReactDOM.render(router(), dom.document.getElementById("container"))
   }
 }
