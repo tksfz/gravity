@@ -11,4 +11,4 @@ cd app
 npm install
 npm start
 ```
-and go to [http://localhost:8090/](http://localhost:8090/).
+and go to [http://localhost:8090/#/Contact/88](http://localhost:8090/#/Contact/88).
