@@ -1,6 +1,8 @@
 package gravity.ui
 
 import apiclient.Get
+import chandu0101.scalajs.react.components.WithAsyncScript
+import chandu0101.scalajs.react.components.materialui.{MuiAppBar, MuiMuiThemeProvider}
 import japgolly.scalajs.react.{Callback, ReactComponentB, ReactNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
 import japgolly.scalajs.react.extra.router.{RouterConfigDsl, RouterCtl}
@@ -56,7 +58,7 @@ object ClassRoutes {
     v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val DetailPageComponent = GetBasedPageComponent[T](v.view(_, _))
+      val DetailPageComponent = mkGetBasedPageComponent[T](v.view(_, _))
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
         dynRenderR((x: Detail[T], router) => DetailPageComponent((router, x.id)))
@@ -69,7 +71,7 @@ object ClassRoutes {
     e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val EditPageComponent = GetBasedPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
+      val EditPageComponent = mkGetBasedPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
         dynRenderR((x: EditPage[T], router) => EditPageComponent((router, x.id)))
   }
@@ -78,19 +80,40 @@ object ClassRoutes {
     * ReactComponent for a Page that accepts an Id and uses a Get instance
     * to fetch that Id.
     */
-  def GetBasedPageComponent[T](fn: (RouterCtl[AnyPage], T) => ReactNode)
+  def mkGetBasedPageComponent[T](fn: (RouterCtl[AnyPage], T) => ReactNode)
   (implicit ct: ClassTag[T], get: Get[T]) =
     ReactComponentB[(RouterCtl[AnyPage], Int)]("detailpage")
       .initialState(Option.empty[T])
-      .render(P => P.state map { t =>
-        <.div(fn(P.props._1, t))
-      } getOrElse {
-        <.div(s"${ct.runtimeClass.getSimpleName} ${P.props} not found")
-      } render)
+      .render(P =>
+        MainLayout {
+          P.state map { t =>
+            fn(P.props._1, t)
+          } getOrElse {
+            s"${ct.runtimeClass.getSimpleName} ${P.props} not found"
+          }
+        })
       .componentDidMount(P => Callback.future {
         get.get(P.props._2).map(P.setState(_))
       })
       .build
 
+  import chandu0101.scalajs.react.components.Implicits._
+
+  val MainLayout =
+    ReactComponentB[Unit]("layout")
+      .render(P =>
+        WithAsyncScript("assets/material_ui-bundle.js") {
+          MuiMuiThemeProvider()(
+            <.div(
+              MuiAppBar(
+                title = "Title",
+                showMenuIconButton = true
+              )(),
+              P.propsChildren
+            )
+          )
+        }
+      )
+      .build
 
 }

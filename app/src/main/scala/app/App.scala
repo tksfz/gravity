@@ -34,20 +34,6 @@ object App extends JSApp {
     .build
 
 
-  def layout(c: RouterCtl[AnyPage], r: Resolution[AnyPage]) = {
-    WithAsyncScript("assets/material_ui-bundle.js") {
-      MuiMuiThemeProvider()(
-        <.div(
-          MuiAppBar(
-            title = "Title",
-            showMenuIconButton = true
-          )(),
-          <.div(r.render())
-        )
-      )
-    }
-  }
-
   import AllData._
 
   // top level schema with
@@ -77,7 +63,6 @@ object App extends JSApp {
         | ClassRoutes.standardRoutes[Contact].routes
         ).notFound(redirectToPage(RouteNotFound)(Redirect.Replace))
     }
-      .renderWith(layout)
 
     val router = Router(BaseUrl.fromWindowOrigin_/, routerConfig)
 
