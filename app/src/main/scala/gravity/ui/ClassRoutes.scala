@@ -2,13 +2,14 @@ package gravity.ui
 
 import apiclient.Get
 import chandu0101.scalajs.react.components.WithAsyncScript
-import chandu0101.scalajs.react.components.materialui.{MuiAppBar, MuiMuiThemeProvider}
-import japgolly.scalajs.react.{Callback, ReactComponentB, ReactNode}
+import chandu0101.scalajs.react.components.materialui.{Mui, MuiAppBar, MuiMuiThemeProvider, MuiSvgIcon}
+import japgolly.scalajs.react.{Callback, ReactComponentB, ReactElement, ReactNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
 import japgolly.scalajs.react.extra.router.{RouterConfigDsl, RouterCtl}
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import scala.reflect.ClassTag
+import scala.scalajs.js
 
 trait AnyPage
 
@@ -50,6 +51,8 @@ object ClassRoutes {
     override def routes = viewRoute | editRoute
   }
 
+  import chandu0101.scalajs.react.components.Implicits._
+
   // ClassTag is used to provide an api-name but we might need to do better
   def viewRoute[T]
   (implicit
@@ -58,10 +61,12 @@ object ClassRoutes {
     v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val DetailPageComponent = mkGetBasedPageComponent[T](v.view(_, _))
+      val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
-        dynRenderR((x: Detail[T], router) => DetailPageComponent((router, x.id)))
+        dynRenderR((x: Detail[T], router) =>
+          DetailPageComponent(SingleRowPageProps(router, x.id,
+            { () => router.link(EditPage[T](x.id))(Mui.SvgIcons.ImageEdit()()) })))
   }
 
   def editRoute[T]
@@ -71,43 +76,52 @@ object ClassRoutes {
     e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val EditPageComponent = mkGetBasedPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
+      val EditPageComponent = singleRowPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
-        dynRenderR((x: EditPage[T], router) => EditPageComponent((router, x.id)))
+        dynRenderR((x: EditPage[T], router) => EditPageComponent(SingleRowPageProps(router, x.id)))
   }
+
+  case class SingleRowPageProps(router: RouterCtl[AnyPage], id: Int,
+    iconElementRight: () => js.UndefOr[ReactElement] = { () => js.undefined })
 
   /**
     * ReactComponent for a Page that accepts an Id and uses a Get instance
     * to fetch that Id.
     */
-  def mkGetBasedPageComponent[T](fn: (RouterCtl[AnyPage], T) => ReactNode)
+  def singleRowPageComponent[T](fn: (RouterCtl[AnyPage], T) => ReactNode)
   (implicit ct: ClassTag[T], get: Get[T]) =
-    ReactComponentB[(RouterCtl[AnyPage], Int)]("detailpage")
+    ReactComponentB[SingleRowPageProps]("detailpage")
       .initialState(Option.empty[T])
       .render(P =>
-        MainLayout {
+        MainLayout(
+          Some(P.props.iconElementRight),
           P.state map { t =>
-            fn(P.props._1, t)
+            fn(P.props.router, t)
           } getOrElse {
-            s"${ct.runtimeClass.getSimpleName} ${P.props._2} not found"
+            s"${ct.runtimeClass.getSimpleName} ${P.props.id} not found".asInstanceOf[ReactNode]
           }
-        })
+        )
+      )
       .componentDidMount(P => Callback.future {
-        get.get(P.props._2).map(P.setState(_))
+        get.get(P.props.id).map(P.setState(_))
       })
       .build
 
-  import chandu0101.scalajs.react.components.Implicits._
-
+  /**
+    * the Prop has to be lazy. otherwise if you reference Mui elements you get undefined errors
+    * I think because the Mui global isn't defined until you get inside this component
+    * TODO: make this a def and consider moving the lazy icon element to an argument
+    */
   val MainLayout =
-    ReactComponentB[Unit]("layout")
+    ReactComponentB[() => js.UndefOr[ReactElement]]("layout")
       .render(P =>
         WithAsyncScript("assets/material_ui-bundle.js") {
           MuiMuiThemeProvider()(
             <.div(
               MuiAppBar(
                 title = "Title",
-                showMenuIconButton = true
+                showMenuIconButton = true,
+                iconElementRight = P.props()
               )(),
               P.propsChildren
             )
@@ -115,5 +129,6 @@ object ClassRoutes {
         }
       )
       .build
+      .withDefaultProps({() => js.undefined})
 
 }
