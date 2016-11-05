@@ -64,9 +64,10 @@ object ClassRoutes {
       val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
-        dynRenderR((x: Detail[T], router) =>
-          DetailPageComponent(SingleRowPageProps(router, x.id,
-            { () => router.link(EditPage[T](x.id))(Mui.SvgIcons.ImageEdit()()) })))
+        dynRenderR { (detailPage, router) =>
+          val editLink = { () => router.link(EditPage[T](detailPage.id))(Mui.SvgIcons.ImageEdit()()).asInstanceOf[js.UndefOr[ReactElement]] }
+          DetailPageComponent(SingleRowPageProps(router, detailPage.id, editLink))
+        }
   }
 
   def editRoute[T]
