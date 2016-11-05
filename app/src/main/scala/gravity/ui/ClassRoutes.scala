@@ -2,7 +2,7 @@ package gravity.ui
 
 import apiclient.Get
 import chandu0101.scalajs.react.components.WithAsyncScript
-import chandu0101.scalajs.react.components.materialui.{Mui, MuiAppBar, MuiMuiThemeProvider, MuiSvgIcon}
+import chandu0101.scalajs.react.components.materialui.{Mui, MuiAppBar, MuiIconButton, MuiMuiThemeProvider, MuiSvgIcon}
 import japgolly.scalajs.react.{Callback, ReactComponentB, ReactElement, ReactNode, TopNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
 import japgolly.scalajs.react.extra.router.{RouterConfigDsl, RouterCtl}
@@ -67,7 +67,9 @@ object ClassRoutes {
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
         dynRenderR { (detailPage, router) =>
-          val editLink = { () => router.link(EditPage[T](detailPage.id))(Mui.SvgIcons.ImageEdit()()) }
+          val editLink = { () =>
+            router.link(EditPage[T](detailPage.id))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
+          }
           DetailPageComponent(SingleRowPageProps(router, detailPage.id, iconElementRight = editLink))
         }
   }
@@ -83,7 +85,9 @@ object ClassRoutes {
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
         dynRenderR { (editPage, router) =>
           // TODO: only show backlink if there is a back in the history
-          val backLink = { () => <.a(^.href := "javascript:history.back()")(Mui.SvgIcons.NavigationArrowBack()()) }
+          val backLink = { () =>
+            <.a(^.href := "javascript:history.back()")(MuiIconButton()(Mui.SvgIcons.NavigationArrowBack()()))
+          }
           EditPageComponent(SingleRowPageProps(router, editPage.id, iconElementLeft = backLink))
         }
   }
