@@ -11,6 +11,7 @@ import japgolly.scalajs.react.vdom.EmptyTag
 
 import scalajs.js
 import chandu0101.scalajs.react.components.Implicits._
+import gravity.ui.ClassRoutes.EditPage
 import japgolly.scalajs.react.extra.router.RouterCtl
 
 import scala.reflect.ClassTag
@@ -83,11 +84,9 @@ object View extends RelaxedViewImplicits {
   // i.e. returning ReactComponent here instead of ReactElement
   implicit def makeTableView[L <: HList, LR <: HList, O <: HList, V <: HList]
   (implicit
-    lr: ZipConst.Aux[RouterCtl[_], L, LR],
+    lr: ZipConst.Aux[RouterCtl[AnyPage], L, LR],
     mapper: Mapper.Aux[headerAndView.type, LR, O],
-    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)],
-    liftAll: LiftAll.Aux[View, L, V],
-    trav2: ToTraversable.Aux[V, List, View[_]]
+    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]
   ) = new View[L] {
     def view(router: RouterCtl[AnyPage], l: L): ReactNode = {
       val elements: List[(ReactNode, ReactNode)] = (lr(router, l) map headerAndView).toList
@@ -119,7 +118,15 @@ object View extends RelaxedViewImplicits {
   (implicit
     l: ClassGeneric.Aux[T, L],
     v: View[L]) = new View[T] {
-    override def view(router: RouterCtl[AnyPage], t: T): ReactNode = v.view(router, l.to(t))
+    override def view(router: RouterCtl[AnyPage], t: T): ReactNode = {
+      // link to edit page
+      // or maybe that needs to be done at the router level
+      // e.g. the Layout calls into a typeclass NavBar[Detail[T]]
+
+      // we need the id for t
+      //router.link(EditPage[T](t.))
+      v.view(router, l.to(t))
+    }
   }
 }
 
