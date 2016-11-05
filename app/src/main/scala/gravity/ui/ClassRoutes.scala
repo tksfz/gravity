@@ -3,7 +3,7 @@ package gravity.ui
 import apiclient.Get
 import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui.{Mui, MuiAppBar, MuiMuiThemeProvider, MuiSvgIcon}
-import japgolly.scalajs.react.{Callback, ReactComponentB, ReactElement, ReactNode}
+import japgolly.scalajs.react.{Callback, ReactComponentB, ReactElement, ReactNode, TopNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.Rule
 import japgolly.scalajs.react.extra.router.{RouterConfigDsl, RouterCtl}
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -53,6 +53,8 @@ object ClassRoutes {
 
   import chandu0101.scalajs.react.components.Implicits._
 
+  implicit def toLazyUndefOrReactElement[T <: TopNode](f: () => ReactTagOf[T]): () => js.UndefOr[ReactElement] = { () => f() }
+
   // ClassTag is used to provide an api-name but we might need to do better
   def viewRoute[T]
   (implicit
@@ -65,8 +67,8 @@ object ClassRoutes {
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
         dynRenderR { (detailPage, router) =>
-          val editLink = { () => router.link(EditPage[T](detailPage.id))(Mui.SvgIcons.ImageEdit()()).asInstanceOf[js.UndefOr[ReactElement]] }
-          DetailPageComponent(SingleRowPageProps(router, detailPage.id, editLink))
+          val editLink = { () => router.link(EditPage[T](detailPage.id))(Mui.SvgIcons.ImageEdit()()) }
+          DetailPageComponent(SingleRowPageProps(router, detailPage.id, iconElementRight = editLink))
         }
   }
 
@@ -79,10 +81,15 @@ object ClassRoutes {
       import dsl._
       val EditPageComponent = singleRowPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
-        dynRenderR((x: EditPage[T], router) => EditPageComponent(SingleRowPageProps(router, x.id)))
+        dynRenderR { (editPage, router) =>
+          // TODO: only show backlink if there is a back in the history
+          val backLink = { () => <.a(^.href := "javascript:history.back()")(Mui.SvgIcons.NavigationArrowBack()()) }
+          EditPageComponent(SingleRowPageProps(router, editPage.id, iconElementLeft = backLink))
+        }
   }
 
   case class SingleRowPageProps(router: RouterCtl[AnyPage], id: Int,
+    iconElementLeft: () => js.UndefOr[ReactElement] = { () => js.undefined },
     iconElementRight: () => js.UndefOr[ReactElement] = { () => js.undefined })
 
   /**
@@ -94,14 +101,13 @@ object ClassRoutes {
     ReactComponentB[SingleRowPageProps]("detailpage")
       .initialState(Option.empty[T])
       .render(P =>
-        MainLayout(
-          Some(P.props.iconElementRight),
+        MainLayout(P.props.iconElementLeft(), P.props.iconElementRight()) {
           P.state map { t =>
             fn(P.props.router, t)
           } getOrElse {
             s"${ct.runtimeClass.getSimpleName} ${P.props.id} not found".asInstanceOf[ReactNode]
           }
-        )
+        }
       )
       .componentDidMount(P => Callback.future {
         get.get(P.props.id).map(P.setState(_))
@@ -113,8 +119,10 @@ object ClassRoutes {
     * I think because the Mui global isn't defined until you get inside this component
     * TODO: make this a def and consider moving the lazy icon element to an argument
     */
-  val MainLayout =
-    ReactComponentB[() => js.UndefOr[ReactElement]]("layout")
+  def MainLayout(
+    iconElementLeft: => js.UndefOr[ReactElement] = js.undefined,
+    iconElementRight: => js.UndefOr[ReactElement] = js.undefined) =
+    ReactComponentB[Unit]("layout")
       .render(P =>
         WithAsyncScript("assets/material_ui-bundle.js") {
           MuiMuiThemeProvider()(
@@ -122,7 +130,8 @@ object ClassRoutes {
               MuiAppBar(
                 title = "Title",
                 showMenuIconButton = true,
-                iconElementRight = P.props()
+                iconElementLeft = iconElementLeft,
+                iconElementRight = iconElementRight
               )(),
               P.propsChildren
             )
@@ -130,6 +139,5 @@ object ClassRoutes {
         }
       )
       .build
-      .withDefaultProps({() => js.undefined})
 
 }
