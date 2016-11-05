@@ -4,14 +4,11 @@ import gravity._
 import gravity.ui._
 import gravity.ui.View._
 import gravity.ui.Edit._
-import chandu0101.scalajs.react.components.WithAsyncScript
-import chandu0101.scalajs.react.components.materialui._
-import chandu0101.scalajs.react.components.Implicits._
 import gravity.models.{ObjectId, OneId, Phone}
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.extra.router.{BaseUrl, Redirect, Resolution, Router, RouterConfigDsl, RouterCtl}
+import japgolly.scalajs.react.extra.router.{BaseUrl, Redirect, Router, RouterConfigDsl}
 import org.scalajs.dom
 
 import scala.scalajs.js
