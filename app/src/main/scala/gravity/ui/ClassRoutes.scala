@@ -104,15 +104,16 @@ object ClassRoutes {
   (implicit ct: ClassTag[T], get: Get[T]) =
     ReactComponentB[SingleRowPageProps]("detailpage")
       .initialState(Option.empty[T])
-      .render(P =>
-        MainLayout(P.props.iconElementLeft(), P.props.iconElementRight()) {
+      .render { P =>
+        val title = ct.runtimeClass.getSimpleName
+        MainLayout(title, P.props.iconElementLeft(), P.props.iconElementRight()) {
           P.state map { t =>
             fn(P.props.router, t)
           } getOrElse {
             s"${ct.runtimeClass.getSimpleName} ${P.props.id} not found".asInstanceOf[ReactNode]
           }
         }
-      )
+      }
       .componentDidMount(P => Callback.future {
         get.get(P.props.id).map(P.setState(_))
       })
@@ -124,6 +125,7 @@ object ClassRoutes {
     * TODO: make this a def and consider moving the lazy icon element to an argument
     */
   def MainLayout(
+    title: String,
     iconElementLeft: => js.UndefOr[ReactElement] = js.undefined,
     iconElementRight: => js.UndefOr[ReactElement] = js.undefined) =
     ReactComponentB[Unit]("layout")
@@ -132,7 +134,7 @@ object ClassRoutes {
           MuiMuiThemeProvider()(
             <.div(
               MuiAppBar(
-                title = "Title",
+                title = title,
                 showMenuIconButton = true,
                 iconElementLeft = iconElementLeft,
                 iconElementRight = iconElementRight
