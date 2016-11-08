@@ -14,7 +14,6 @@
     "compression-webpack-plugin": "^0.2.0",
     "css-loader": "^0.23.0",
     "file-loader": "^0.8.4",
-    "fsevents": "^1.0.15",
     "gulp-decompress": "^1.1.0",
     "image-webpack-loader": "^1.6.1",
     "imagemin": "^4.0.0",
