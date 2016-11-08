@@ -47,6 +47,7 @@ object ClassRoutes {
     v: View[T],
     e: Edit[T],
     get: Get[T],
+    label: Label[T],
     ct: ClassTag[T]) = new ClassRoutes[T] {
     override def routes = viewRoute | editRoute
   }
@@ -60,10 +61,11 @@ object ClassRoutes {
   (implicit
     ct: ClassTag[T],
     get: Get[T],
+    label: Label[T],
     v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
+      val DetailPageComponent = singleRowPageComponent[T]("View", v.view(_, _))
 
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
         dynRenderR { (detailPage, router) =>
@@ -78,10 +80,11 @@ object ClassRoutes {
   (implicit
     ct: ClassTag[T],
     get: Get[T],
+    label: Label[T],
     e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule {
     dsl =>
       import dsl._
-      val EditPageComponent = singleRowPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
+      val EditPageComponent = singleRowPageComponent[T]("Edit", { case (router, t) => e.element(e.toModel(t)) })
       dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
         dynRenderR { (editPage, router) =>
           // TODO: only show backlink if there is a back in the history
@@ -100,13 +103,12 @@ object ClassRoutes {
     * ReactComponent for a Page that accepts an Id and uses a Get instance
     * to fetch that Id.
     */
-  def singleRowPageComponent[T](fn: (RouterCtl[AnyPage], T) => ReactNode)
-  (implicit ct: ClassTag[T], get: Get[T]) =
+  def singleRowPageComponent[T](name: String, fn: (RouterCtl[AnyPage], T) => ReactNode)
+  (implicit ct: ClassTag[T], get: Get[T], label: Label[T]) =
     ReactComponentB[SingleRowPageProps]("detailpage")
       .initialState(Option.empty[T])
       .render { P =>
-        val title = ct.runtimeClass.getSimpleName
-        MainLayout(title, P.props.iconElementLeft(), P.props.iconElementRight()) {
+        MainLayout(s"$name ${label.label}", P.props.iconElementLeft(), P.props.iconElementRight()) {
           P.state map { t =>
             fn(P.props.router, t)
           } getOrElse {

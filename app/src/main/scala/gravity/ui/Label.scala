@@ -4,6 +4,8 @@ import shapeless.labelled._
 import shapeless.{HList, RecordArgs, ops}
 import shapeless.tag._
 
+import scala.reflect.ClassTag
+
 /**
   * For a field, `T` is of the form `FieldType[K, V] @@ C == V with KeyTag[K, V] with Tagged[C]` where C is
   * the case class from which a record is derived containing field K with value V.  This allows us to define
@@ -27,6 +29,11 @@ object Label {
     kInR: ops.record.Selector.Aux[R, K, String]) = new Label[FieldType[K, V] @@ T] {
     def label = kInR.apply(data.labels)
   }
+
+  def forType[T](implicit ct: ClassTag[T]): Label[T] = new Label[T] {
+    override def label = ct.runtimeClass.getSimpleName
+  }
+
 }
 
 // Or rename to MetaMap or MetadataMap

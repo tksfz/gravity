@@ -4,7 +4,7 @@ import java.time.LocalDate
 import java.util.Date
 
 import gravity.methods.Method
-import gravity.ui.Labels
+import gravity.ui.{Label, Labels}
 import shapeless.ops.record.Selector
 import shapeless._
 import gravity.models._
@@ -84,6 +84,8 @@ object models {
   ) {
     def fullName = firstName + lastName
   }
+
+  implicit val contactLabel = Label.forType[Contact]
 
   implicit val contactLabels = Labels[Contact].apply (
     firstName = "First Name",
