@@ -1,5 +1,12 @@
 package gravity
 
+import chandu0101.scalajs.react.components.WithAsyncScript
+import chandu0101.scalajs.react.components.materialui.{MuiAppBar, MuiMuiThemeProvider}
+import japgolly.scalajs.react.{ReactComponentB, ReactElement}
+import japgolly.scalajs.react.vdom.prefix_<^._
+
+import scala.scalajs.js
+
 package object ui {
 
   /**
@@ -16,4 +23,34 @@ package object ui {
   object EnableRelaxedImplicits {
     implicit val relaxedImplicits = new RelaxedImplicits { }
   }
+
+  import chandu0101.scalajs.react.components.Implicits._
+
+  /**
+    * the Prop has to be lazy. otherwise if you reference Mui elements you get undefined errors
+    * I think because the Mui global isn't defined until you get inside this component
+    * TODO: consider moving to a super-trait Layouts.scala or some other file
+    */
+  def MainLayout(
+    iconElementLeft: => js.UndefOr[ReactElement] = js.undefined,
+    iconElementRight: => js.UndefOr[ReactElement] = js.undefined) =
+  ReactComponentB[Unit]("layout")
+    .render(P =>
+      WithAsyncScript("assets/material_ui-bundle.js") {
+        MuiMuiThemeProvider()(
+          <.div(
+            MuiAppBar(
+              title = "Title",
+              showMenuIconButton = true,
+              iconElementLeft = iconElementLeft,
+              iconElementRight = iconElementRight
+            )(),
+            P.propsChildren
+          )
+        )
+      }
+    )
+    .build
+
+
 }

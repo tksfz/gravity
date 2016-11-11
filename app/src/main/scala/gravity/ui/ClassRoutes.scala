@@ -28,13 +28,17 @@ trait ClassRoutes[T] {
 
 object ClassRoutes {
 
+  def apply[T](someRoutes: Rule[AnyPage]) = new ClassRoutes[T] {
+    def routes = someRoutes
+  }
+
   /**
     * Not sure if T : ClassTag will be adequate here:
     * - Note that routes are two way, so I believe that given an instance of Detail we should be able to map back to
     * the path. So we need to distinguish Detail[Account] vs Detail[Contact].
     * - I'm not sure if the ClassTag will work for doing that, but we'll have to try and see.
     */
-  case class Detail[T : ClassTag](id: Int) extends AnyPage
+  case class ViewPage[T : ClassTag](id: Int) extends AnyPage
   case class EditPage[T : ClassTag](id: Int) extends AnyPage
 
   import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
@@ -47,49 +51,47 @@ object ClassRoutes {
     v: View[T],
     e: Edit[T],
     get: Get[T],
-    ct: ClassTag[T]) = new ClassRoutes[T] {
-    override def routes = viewRoute | editRoute
-  }
+    ct: ClassTag[T]) = ClassRoutes[T](standardViewPageRoute | standardEditPageRoute)
 
   import chandu0101.scalajs.react.components.Implicits._
 
   implicit def toLazyUndefOrReactElement[T <: TopNode](f: () => ReactTagOf[T]): () => js.UndefOr[ReactElement] = { () => f() }
 
   // ClassTag is used to provide an api-name but we might need to do better
-  def viewRoute[T]
+  def standardViewPageRoute[T]
   (implicit
     ct: ClassTag[T],
     get: Get[T],
-    v: View[T]) = RouterConfigDsl[AnyPage].buildRule {
-    dsl =>
-      import dsl._
-      val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
+    v: View[T]) = RouterConfigDsl[AnyPage].buildRule { dsl =>
 
-      dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[Detail[T]]) ~>
-        dynRenderR { (detailPage, router) =>
-          val editLink = { () =>
-            router.link(EditPage[T](detailPage.id))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
-          }
-          DetailPageComponent(SingleRowPageProps(router, detailPage.id, iconElementRight = editLink))
+    import dsl._
+    val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
+
+    dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[ViewPage[T]]) ~>
+      dynRenderR { (detailPage, router) =>
+        val editLink = { () =>
+          router.link(EditPage[T](detailPage.id))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
         }
+        DetailPageComponent(SingleRowPageProps(router, detailPage.id, iconElementRight = editLink))
+      }
   }
 
-  def editRoute[T]
+  def standardEditPageRoute[T]
   (implicit
     ct: ClassTag[T],
     get: Get[T],
-    e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule {
-    dsl =>
-      import dsl._
-      val EditPageComponent = singleRowPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
-      dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
-        dynRenderR { (editPage, router) =>
-          // TODO: only show backlink if there is a back in the history
-          val backLink = { () =>
-            <.a(^.href := "javascript:history.back()")(MuiIconButton()(Mui.SvgIcons.NavigationArrowBack()()))
-          }
-          EditPageComponent(SingleRowPageProps(router, editPage.id, iconElementLeft = backLink))
+    e: Edit[T]) = RouterConfigDsl[AnyPage].buildRule { dsl =>
+
+    import dsl._
+    val EditPageComponent = singleRowPageComponent[T]({ case (router, t) => e.element(e.toModel(t)) })
+    dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int / "edit").caseClass[EditPage[T]]) ~>
+      dynRenderR { (editPage, router) =>
+        // TODO: only show backlink if there is a back in the history
+        val backLink = { () =>
+          <.a(^.href := "javascript:history.back()")(MuiIconButton()(Mui.SvgIcons.NavigationArrowBack()()))
         }
+        EditPageComponent(SingleRowPageProps(router, editPage.id, iconElementLeft = backLink))
+      }
   }
 
   case class SingleRowPageProps(router: RouterCtl[AnyPage], id: Int,
@@ -116,32 +118,6 @@ object ClassRoutes {
       .componentDidMount(P => Callback.future {
         get.get(P.props.id).map(P.setState(_))
       })
-      .build
-
-  /**
-    * the Prop has to be lazy. otherwise if you reference Mui elements you get undefined errors
-    * I think because the Mui global isn't defined until you get inside this component
-    * TODO: make this a def and consider moving the lazy icon element to an argument
-    */
-  def MainLayout(
-    iconElementLeft: => js.UndefOr[ReactElement] = js.undefined,
-    iconElementRight: => js.UndefOr[ReactElement] = js.undefined) =
-    ReactComponentB[Unit]("layout")
-      .render(P =>
-        WithAsyncScript("assets/material_ui-bundle.js") {
-          MuiMuiThemeProvider()(
-            <.div(
-              MuiAppBar(
-                title = "Title",
-                showMenuIconButton = true,
-                iconElementLeft = iconElementLeft,
-                iconElementRight = iconElementRight
-              )(),
-              P.propsChildren
-            )
-          )
-        }
-      )
       .build
 
 }
