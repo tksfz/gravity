@@ -49,8 +49,6 @@ object App extends JSApp {
     //val comp = component(Contact("Mary", "Johnson"))
     val user = User(ObjectId(1), "harry@potter.com", "hpotter", "Harry Potter")
     val contact = Contact(ObjectId(1), OneId(ObjectId(1)), "Washington", Some("Mary"), title = Some("Senior Engineer"), mobilePhone = Some(Phone("(415) 555-2121")))
-    val generic = LabelledGeneric[Contact].to(contact).merge(('fullName ->> defFullName) :: HNil)
-    val generic2 = Tagger[Contact].apply(generic)
 
     val routerConfig = RouterConfigDsl[AnyPage].buildConfig { dsl =>
       import dsl._
