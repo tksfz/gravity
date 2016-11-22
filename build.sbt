@@ -52,6 +52,7 @@ lazy val demo = project
 
 lazy val app = project
   .settings(
+    mainClass in Compile := Some("blog.App"),
     libraryDependencies ++= Seq(
       "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1",
       "com.github.japgolly.scalajs-react" %%% "extra" % "0.11.1",

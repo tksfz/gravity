@@ -29,6 +29,8 @@ trait ClassRoutes[T] {
 
 object ClassRoutes {
 
+  /** Get the routes implicitly associated with a type `T` using `ClassRoutes[T]` */
+  def apply[T : ClassRoutes] = implicitly[ClassRoutes[T]].routes
 
   /** Define routes with this using `implicit val fooRoutes = ClassRoutes[Foo]( ...some routes ...)` */
   def apply[T](someRoutes: Rule[AnyPage]) = new ClassRoutes[T] {
@@ -76,7 +78,7 @@ object ClassRoutes {
         val editLink = { () =>
           router.link(EditPage[T](detailPage.id))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
         }
-        val mainProps = MainLayoutProps(router, iconElementRight = editLink)
+        val mainProps = MainLayoutProps(router/*, iconElementRight = editLink*/)
         DetailPageComponent((detailPage.id, mainProps))
       }
   }
