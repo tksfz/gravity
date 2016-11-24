@@ -11,8 +11,8 @@ import japgolly.scalajs.react.vdom.ReactTagOf
 import japgolly.scalajs.react.vdom.prefix_<^._
 import org.scalajs.dom.html
 import shapeless.ops.function.FnToProduct
-import shapeless.ops.hlist.{LiftAll, Selector, ZipApply}
-import shapeless.{HList, HNil, Poly1}
+import shapeless._
+import shapeless.ops.hlist.LiftAll
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -90,162 +90,57 @@ object ClassRoutes {
   }
 
   /**
-    * Typeful Patterns
+    * Type class witnessing that a page of type P, accepting args A, exists. Typically P will be a marker
+    * trait that the app page extends.
     *
-    * Part I: Type classes
-    * 0: Type Classes
-    * 1. Constraints
-    * 2. Multiple Dispatch
-    *
-    * Part II: Generic Derivation
-    *
-    * Part III:
+    * @tparam P a page type
+    * @tparam A arguments that the page must accept (coalesced into a single HList)
     */
-
-  /**
-    * What should we call this pattern? Provider pattern
-    * type-level map?
-    *
-    * what is the syntax for the client code that provides all these instances?
-    *
-    * @tparam P pseudo-page
-    */
-  trait HasPage[P] {
-    type Page
-
-    def apply: Page = page
-
-    def page: Page
-
-    def pathFor(target: P): Path
-    def set(target: P): Callback
+  trait HasPage[P, A <: HList] {
+    // Note that a subtype of P is typically returned but the library doesn't care and couldn't do anything
+    // with that information
+    def page(args: A): P
   }
 
+  type HasPage0[P] = HasPage[P, HNil]
+  type HasPage1[P, A] = HasPage[P, A :: HNil]
+  type HasPage2[P, A, B] = HasPage[P, A :: B :: HNil]
+  type HasPage3[P, A, B, C] = HasPage[P, A :: B :: C :: HNil]
 
-
-
-
-  // in order to make the implicit machinery generic all of these
-  // may nede to extend HasPageWithArgs
-  trait HasPage1[P, A] {
-    type Page
-
-    def page(a: A): Page
-  }
-
-  trait HasPage2[P, A, B] {
-    type Page
-
-    def page(a: A, b: B): Page
-  }
-
-  trait HasPage3[P, A, B, C] {
-    type Page
-    def page(a: A, b: B, c: D): Page
-  }
-
-  trait EditPageX[T]
-
-  type HasEditPageX[T] = HasPage1[EditPageX[T], Int]
-
-  // this doesn't use P at all. might be OK. P is just for selection.
-  trait HasPageWithArgs[P, A <: HList] {
-    type Page
-
-    def page(args: A): Page
-  }
-
-  // a macro may be suitable or even necessary here
-  // to capture the apply parameters on EditPage
-  // note this doesn't use the case class aspectse of EditPage at all
-  type HasEditPageWithArgs[T] = HasPageWithArgs[EditPage[T], Int :: HNil]
-
-  trait HasEditPage[T] {
-    type Page
-
-    def create(id: Int): Page
-  }
-
-  trait EditPage2[T]
-
-  type HasEditPage2[T] = HasPageWithArgs[EditPage2[T], Int :: HNil]
-
-  type HasEditPageUsingMacro[T] = HasPageLike[EditPage[T]]
-
-  // the problem with this trait is it doesn't have anything to drive implicit selection
-  trait Factory[A <: HList] {
-    type Out
-
-    def create(a: A): Out
-  }
-
-  //trait FactoryLike[F]
-
-  trait HasEditPage extends Factory[Int :: HNil]
+  type HasEditPage[T] = HasPage1[EditPage[T], Int]
 
   case class PostEdit(id: Int)
 
-  implicit object PostHasEditPage extends HasEditPageWithArgs[Post] {
-    type Page = PostEdit
-
-    // or use fnToProduct
-    def page(args: Int :: HNil) = (PostEdit.apply _).tupled.apply(args.tupled)
-  }
-
-  // this all seems verbose if a particular page has several such attachment
-  // points
-
-  // we could collect multiple P's as P1 :: P2 :: P3, along with args A1 :: A2 :: A3
-  // and have a helper HasPages
-
-  // the short syntax is something like:
-
-  // a macro may also be suitable here
+  /**
+    * @param allAreFunctions enforces that all the elements of L are FunctionN's
+    */
+  case class GenericallyKnownPages[L <: HList](pageFns: L)
+    (implicit allAreFunctions: LiftAll[FnToProduct, L])
 
 
-  // mapping/function from [T] => (Args => P) and maybe we have P <: T
-  // or [T] => (Args => T)
-  HasPages { has[EditPage[Post]](PostEdit.apply _), has[ViewPage[Post]], }
-
-  case class ConformingPages[L <: HList](pages: L)
-
-  // unclear what the relationship is between this and HasPageWithArgs
-  trait HasConformingPage[L <: HList, P, A] {
-    def page(l: L, a: A): P
-  }
-
-  object AllMyPages extends Poly1 {
-    implicit def postEdit = at[EditPage[Post]] { PostEdit.apply _ }
-  }
-
-  // if we do the marker trait thing then we can simplify to:
-  implicit val AllMyPages2 = AllPages {
-    // this is a function from A => (Page <: P)
+  implicit val MyKnownPages = GenericallyKnownPages(
     PostEdit.apply _
     :: HNil
-    // etc.
-  }
+  )
 
-  // just use marker interfaces?
-  // marker interfaces should definitely be the end-developer interface
-  // but it goes through a bunch of machinery to make that work
-  // we should also change the terminology because Page is misleading
-  // really these are PageRef's or RouteRef's
-  trait EditPageY[T]
-
-  implicit val myConformingPages = ???
+  // TODO: change terminology. Page is misleading. really these are PageRef's or RouteRef's or just Routes
 
   // given that we have some definition of HasPages, how do we break it down
   // into individual page conformings
-
-  implicit def hasPageFromHasPages[P, A <: HList]
+  implicit def hasPage[L <: HList, P, A <: HList]
   (implicit
-    ev: HasPages.For[EditPage[Post]]
-  )= new HasPageWithArgs[P, A] {
-
+    pages: GenericallyKnownPages[L],
+    onePageIsGood: HasConformingPage[L, P, A]) = new HasPage[P, A] {
+    type Page = P // this is wrong fix this
+    override def page(args: A): Page = {
+      onePageIsGood.page(pages.pageFns, args)
+    }
   }
 
-  import shapeless._
+  // TODO: consider making HasConformingPage instances just go straight to HasPage
+  trait HasConformingPage[L <: HList, P, A <: HList] {
+    def page(l: L, a: A): P
+  }
 
   /**
     * this doesn't work for generic case classes with implicit classtag i.e. case class MyEditPage[T : ClassTag]()
@@ -255,9 +150,10 @@ object ClassRoutes {
     // TODO: subtypes of P
 
     // no instance for hnil
-    implicit def instance[H, T <: HList, P, A]
+    // likely we'll need `ev: Page <:< P` instead of `Page <: P` here to make inference work properly
+    implicit def instance[H, T <: HList, P, Page <: P, A]
     (implicit
-      fnToProduct: FnToProduct.Aux[H, A => P]) = new HasConformingPage[H :: T, P, A] {
+      fnToProduct: FnToProduct.Aux[H, A => Page]) = new HasConformingPage[H :: T, P, A] {
       override def page(l: H :: T, a: A): P = {
         fnToProduct.apply(l.head).apply(a)
       }
@@ -269,20 +165,6 @@ object ClassRoutes {
       recurse: HasConformingPage[T, P, A]) = new HasConformingPage[H :: T, P, A] {
       override def page(l: H :: T, a: A): P = recurse.page(l.tail, a)
     }
-  }
-
-  type HasEditPage2[T] = HasPage[EditPage[T]]
-
-  trait HasEditPage[A] {
-    type Page
-
-    def page(id: Int): Page
-
-    def pathFor(target: EditPage[A]): Path
-    def set(target: EditPage[A]): Callback
-
-    final def link(target: EditPage[A]): ReactTagOf[html.Anchor] =
-      <.a(^.href := urlFor(target).value, setOnLinkClick(target))
   }
 
   def standardViewPageRoute[T](editPageRule: HasEditPage[T])
