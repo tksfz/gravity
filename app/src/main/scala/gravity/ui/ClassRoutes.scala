@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import org.scalajs.dom.html
 import shapeless.ops.function.FnToProduct
 import shapeless._
-import shapeless.ops.hlist.LiftAll
+import shapeless.ops.hlist.{LiftAll, Selector, SubtypeUnifier}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -89,85 +89,104 @@ object ClassRoutes {
       }
   }
 
+
   /**
-    * Type class witnessing that a page of type P, accepting args A, exists. Typically P will be a marker
-    * trait that the app page extends.
+    * Dependency injection of route keys, used to support linking to app-defined routes.
     *
-    * @tparam P a page type
-    * @tparam A arguments that the page must accept (coalesced into a single HList)
+    * Suppose a library generates a page L and would like to link from the L to some app-defined
+    * page P. Then the library defines a marker trait T and the app author ensures that P extends T.
+    * Where `P <: T` is wanted, the library declares `implicit t: MkPage[T]`. To provide
+    *
+    * When the desired route is "dynamic" meaning that it should accept some arguments (e.g.
+    * an edit page requiring a row id), the library uses `T = Id => EditPage` and the app author
+    * can provide route case class's object apply method.
+    *
+    * @tparam F
     */
-  trait HasPage[P, A <: HList] {
-    // Note that a subtype of P is typically returned but the library doesn't care and couldn't do anything
-    // with that information
-    def page(args: A): P
+  // some pages are "static" - they don't require functions
+  case class MkPage[F](apply: F) //(implicit isFunction: FnToProduct[F])
+
+  type MkEditPage[T] = MkPage[Int => EditPage[T]]
+
+  implicit val mkEditPage = MkPage(PostEdit.apply _)
+
+  def doSomething
+  (implicit
+    editPage: MkPage[Int => EditPage[T]]
+  ) = {
+    editPage.apply
   }
 
-  type HasPage0[P] = HasPage[P, HNil]
-  type HasPage1[P, A] = HasPage[P, A :: HNil]
-  type HasPage2[P, A, B] = HasPage[P, A :: B :: HNil]
-  type HasPage3[P, A, B, C] = HasPage[P, A :: B :: C :: HNil]
-
-  type HasEditPage[T] = HasPage1[EditPage[T], Int]
+  // will Selector respect covariance / contravariance?
+  implicit def mkPageFromKnownPages[L <: HList, F, M <: HList]
+  (implicit
+    pages: MkPages[L],
+    unify: SubtypeUnifier.Aux[L, F, M],
+    select: Selector[M, F]) = new MkPage[F](select(unify(pages.pageFns)))
 
   case class PostEdit(id: Int)
 
   /**
-    * @param allAreFunctions enforces that all the elements of L are FunctionN's
+    * Shortcut for declaring several `MkPage` instances at once:
+    *
+    *   implicit val pagesToInject = MkPages(
+    *     MySingletonPage
+    *       :: MyEditPage.apply _
+    *       :: HNil
+    *   )
+    *
+    * Elements should either be functions that return page instances of some known type,
+    * or singleton pages.
     */
-  case class GenericallyKnownPages[L <: HList](pageFns: L)
-    (implicit allAreFunctions: LiftAll[FnToProduct, L])
+  case class MkPages[L <: HList](pageFns: L)
+    //(implicit allAreFunctions: LiftAll[FnToProduct, L])
 
-
-  implicit val MyKnownPages = GenericallyKnownPages(
+  implicit val MyKnownPages = MkPages(
     PostEdit.apply _
     :: HNil
   )
 
-  // TODO: change terminology. Page is misleading. really these are PageRef's or RouteRef's or just Routes
+  // TODO: change terminology. Page is misleading. really these are RouteKeys
 
-  // given that we have some definition of HasPages, how do we break it down
-  // into individual page conformings
-  implicit def hasPage[L <: HList, P, A <: HList]
-  (implicit
-    pages: GenericallyKnownPages[L],
-    onePageIsGood: HasConformingPage[L, P, A]) = new HasPage[P, A] {
-    type Page = P // this is wrong fix this
-    override def page(args: A): Page = {
-      onePageIsGood.page(pages.pageFns, args)
-    }
-  }
-
-  // TODO: consider making HasConformingPage instances just go straight to HasPage
-  trait HasConformingPage[L <: HList, P, A <: HList] {
-    def page(l: L, a: A): P
+  /**
+    * Selects the first element of HList `L` that is a function of the form
+    *
+    *   (A1, A2, ...) => R
+    *
+    * where the arguments are specified with arbitrary arity by HList `A = A1 :: A2 :: ...`.
+    * This should respect covariance of the return type so that a functions => S where S <: R should
+    * work.
+    */
+  trait FnSelector[L <: HList, A <: HList, R] {
+    def apply(l: L, a: A): R
   }
 
   /**
     * this doesn't work for generic case classes with implicit classtag i.e. case class MyEditPage[T : ClassTag]()
     */
-  object HasConformingPage {
-
-    // TODO: subtypes of P
+  object FnSelector {
 
     // no instance for hnil
-    // likely we'll need `ev: Page <:< P` instead of `Page <: P` here to make inference work properly
-    implicit def instance[H, T <: HList, P, Page <: P, A]
+
+    // likely we'll need `ev: S <:< P` instead of `S <: R` here to make inference work properly
+    // do we even need S <: R or will FnToProduct work automatically?
+    // what about contravariance of the args?
+    implicit def select[H, T <: HList, A <: HList, R, S <: R]
     (implicit
-      fnToProduct: FnToProduct.Aux[H, A => Page]) = new HasConformingPage[H :: T, P, A] {
-      override def page(l: H :: T, a: A): P = {
+      fnToProduct: FnToProduct.Aux[H, A => S]) = new FnSelector[H :: T, A, R] {
+      override def apply(l: H :: T, a: A): R = {
         fnToProduct.apply(l.head).apply(a)
       }
     }
 
-    // recursive
-    implicit def recursiveInstance[H, T <: HList, P, A]
+    implicit def recurse[H, T <: HList, A <: HList, R]
     (implicit
-      recurse: HasConformingPage[T, P, A]) = new HasConformingPage[H :: T, P, A] {
-      override def page(l: H :: T, a: A): P = recurse.page(l.tail, a)
+      recurse: FnSelector[T, A, R]) = new FnSelector[H :: T, A, R] {
+      override def apply(l: H :: T, a: A): R = recurse.apply(l.tail, a)
     }
   }
 
-  def standardViewPageRoute[T](editPageRule: HasEditPage[T])
+  def standardViewPageRoute[T](editPageRule: MkPage[EditPage[T]])
     (implicit
       ct: ClassTag[T],
       get: Get[T],
