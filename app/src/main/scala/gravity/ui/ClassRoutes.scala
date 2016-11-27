@@ -5,10 +5,7 @@ import chandu0101.scalajs.react.components.materialui.{Mui, MuiAppBar, MuiIconBu
 import japgolly.scalajs.react.{Callback, ReactComponentB, ReactComponentC, ReactElement, ReactNode, TopNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.{Route, RouteB, Rule}
 import japgolly.scalajs.react.extra.router.{Path, RouterConfigDsl, RouterCtl}
-import japgolly.scalajs.react.vdom.ReactTagOf
 import japgolly.scalajs.react.vdom.prefix_<^._
-import shapeless.{$up => _, _}
-import shapeless.ops.hlist.{Selector, SubtypeUnifier}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -64,72 +61,6 @@ object ClassRoutes {
   import chandu0101.scalajs.react.components.Implicits._
 
   implicit def toLazyUndefOrReactElement[T <: TopNode](f: () => ReactTagOf[T]): () => js.UndefOr[ReactElement] = { () => f() }
-
-  /**
-    * Dependency injection of route keys, used to support linking to app-defined routes.
-    *
-    * Suppose a library generates a page L and would like to link from the L to some app-defined
-    * page P. Then the library defines a marker trait T and the app author ensures that P extends T.
-    * Where `P <: T` is wanted, the library declares `implicit t: MkPage[T]`:
-    *
-    * def doSomething(implicit editPage: MkPage[Int => EditPage[T]]) = {
-    *   editPage.apply
-    * }
-    *
-    * To provide this dependency,
-    *
-    * When the desired route is "dynamic" meaning that it should accept some arguments (e.g.
-    * an edit page requiring a row id), the library uses `T = Id => EditPage` and the app author
-    * can provide route case class's object apply method.
-    *
-    * TODO: rename to `Link`?
-    *
-    * @tparam F typically a marker trait declared by a library that would like to link to a particular
-    *           kind of page
-    */
-  case class MkPage[F](apply: F)
-
-  object MkPage {
-    /**
-      * An optional dependency is declared as `implicit ev: Option[T] = None`. When implicit `t: T` is available,
-      * this provides `Some(t)`.
-      */
-    implicit def some[F](implicit mkPage: MkPage[F]) = Some(mkPage)
-  }
-
-  type MkEditPage[T] = MkPage[Int => EditPage[T]]
-
-  implicit val mkEditPage = MkPage(PostEdit.apply _)
-
-  implicit def mkPageFromKnownPages[L <: HList, F, M <: HList]
-  (implicit
-    pages: MkPages[L],
-    unify: SubtypeUnifier.Aux[L, F, M],
-    select: Selector[M, F]) = new MkPage[F](select(unify(pages.pageFns)))
-
-  case class PostEdit(id: Int)
-
-  /**
-    * Shortcut for declaring several `MkPage` instances at once:
-    *
-    *   implicit val pagesToInject = MkPages(
-    *     MySingletonPage
-    *       :: MyEditPage.apply _
-    *       :: HNil
-    *   )
-    *
-    * Elements should either be functions that return page instances of some known type,
-    * or singleton pages.
-    */
-  case class MkPages[L <: HList](pageFns: L)
-    //(implicit allAreFunctions: LiftAll[FnToProduct, L])
-
-  implicit val MyKnownPages = MkPages(
-    PostEdit.apply _
-    :: HNil
-  )
-
-  // TODO: change terminology. Page is misleading. really these are RouteKeys
 
   // ClassTag is used to provide an api-name but we might need to do better
   def standardViewPageRoute[T]
