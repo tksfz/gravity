@@ -25,6 +25,7 @@ object App extends JSApp {
 
   case object Home extends AnyPage
   case object RouteNotFound extends AnyPage
+  case class ContactView(id: Int) extends AnyPage
 
   val homePage = ReactComponentB[Unit]("home")
     .render(P => <.div("Welcome Home"))
@@ -55,7 +56,7 @@ object App extends JSApp {
       (emptyRule
         | staticRoute(root, Home) ~> render(homePage())
         | staticRoute("#/noroute", RouteNotFound) ~> render(<.div("no matching route for request"))
-        | ClassRoutes.standardRoutes[Contact].routes
+        | ClassRoutes.standardRoutes[Contact, ContactView].routes
         ).notFound(redirectToPage(RouteNotFound)(Redirect.Replace))
     }
 

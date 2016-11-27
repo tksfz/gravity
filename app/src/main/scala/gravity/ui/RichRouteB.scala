@@ -5,6 +5,8 @@ import shapeless._
 import shapeless.ops.hlist.Tupler
 
 object generic {
+
+  // https://gist.github.com/milessabin/fbd9da3361611b91da17
   trait TupleGeneric[C <: Product] extends Serializable {
     type Repr <: Product
 
@@ -30,14 +32,15 @@ object generic {
   }
 
 
-  implicit class RichRouteB[A](val ra: RouteB[A]) {
+  implicit class RichRouteB[A <: Product](val ra: RouteB[A]) {
 
     class Curried[B] {
       def apply[AL <: HList, BL <: HList]
       (implicit
         ag: Generic.Aux[A, AL],
         bg: Generic.Aux[B, BL],
-        eq: AL =:= BL
+        eq: AL =:= BL,
+        eq2: BL =:= AL
       ): RouteB[B] = {
         new RouteB[B](
           regex = ra.regex,
@@ -49,7 +52,7 @@ object generic {
           },
           build = { b =>
             val bl = bg.to(b)
-            val al: AL = al
+            val al: AL = bl
             val a = ag.from(al)
             ra.build(a)
           }

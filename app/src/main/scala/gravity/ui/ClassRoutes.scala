@@ -53,48 +53,17 @@ object ClassRoutes {
 
   // TODO: use optional implicits
   // TODO: change all references to ClassTag to use Label[T]
-  implicit def standardRoutes[T]
+  implicit def standardRoutes[T, P <: AnyPage]
   (implicit
     v: View[T],
     e: Edit[T],
     get: Get[T],
-    ct: ClassTag[T]) = ClassRoutes[T](standardViewPageRoute | standardEditPageRoute)
+    ct: ClassTag[T],
+    p: Routable[Int, P]) = ClassRoutes[T](standardViewPageRoute | standardEditPageRoute)
 
   import chandu0101.scalajs.react.components.Implicits._
 
   implicit def toLazyUndefOrReactElement[T <: TopNode](f: () => ReactTagOf[T]): () => js.UndefOr[ReactElement] = { () => f() }
-
-  import generic._
-  import shapeless.{$up => _, _}
-
-  trait Routable[T, P] {
-    def apply(t: T): P
-    def unapply(p: P): T
-  }
-
-  object Routable {
-    implicit def routableTupleCaseClass[T <: Product, P]
-    (implicit tg: TupleGeneric.Aux[T, P]) = new Routable[T, P] {
-      def apply(t: T) = tg.to(t)
-      def unapply(p: P) = tg.from(p)
-    }
-
-    // tuple1
-    // hopefully there's no divergence here
-    implicit def routableTuple1CaseClass[A, P]
-    (implicit tg: TupleGeneric.Aux[Tuple1[A], P]) = new Routable[A, P] {
-      def apply(a: A) = tg.to(Tuple1(a))
-      def unapply(p: P) = tg.from(p)._1
-    }
-
-    // TODO: unit
-
-    // custom routable
-    def routable[T, P](a: T => P, u: P => T) = new Routable[T, P] {
-      def apply(t: T) = a(t)
-      def unapply(p: P) = u(p)
-    }
-  }
 
   // v0: Generic.Aux over Tuple1[Int] and P, then an =:= on their Out's - doesn't work for whatever reason
   // v1: TupleGeneric.  kind of works, but may be too tight a constraint on P
@@ -109,7 +78,7 @@ object ClassRoutes {
     cp: ClassTag[P],
     get: Get[T],
     v: View[T],
-    tg: TupleGeneric.Aux[Tuple1[Int], P]
+    tg: Routable[Int, P]
   ) = RouterConfigDsl[AnyPage].buildRule { dsl =>
     import dsl._
 
@@ -117,15 +86,14 @@ object ClassRoutes {
 
     dynamicRouteCT(
       ("#" / ct.runtimeClass.getSimpleName / int)
-        .xmap(Tuple1(_))(_._1)
-        .caseClassShapeless2[P]
+        .xmap(tg.apply)(tg.unapply)
     ) ~>
       dynRenderR { (detailPage, router) =>
         val editLink = { () =>
-          router.link(EditPage[T](tg.from(detailPage)._1))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
+          router.link(EditPage[T](tg.unapply(detailPage)))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
         }
         val mainProps = MainLayoutProps(router/*, iconElementRight = editLink*/)
-        DetailPageComponent((tg.from(detailPage)._1, mainProps))
+        DetailPageComponent((tg.unapply(detailPage), mainProps))
       }
   }
 

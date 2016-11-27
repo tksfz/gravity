@@ -13,6 +13,7 @@ import scala.scalajs.js
 import scala.scalajs.js.Dynamic._
 import scala.scalajs.js.JSApp
 import scala.scalajs.js.Dynamic.{global => g}
+import gravity.ui.Routable._
 
 
 /**
