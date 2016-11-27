@@ -133,11 +133,11 @@ object ClassRoutes {
 
   // ClassTag is used to provide an api-name but we might need to do better
   def standardViewPageRoute[T]
-    (implicit
-      ct: ClassTag[T],
-      get: Get[T],
-      v: View[T],
-      mkEditPage: Option[MkPage[Int => EditPage[T]]] = None) = RouterConfigDsl[AnyPage].buildRule { dsl =>
+  (implicit
+    ct: ClassTag[T],
+    get: Get[T],
+    v: View[T],
+    mkEditPage: Option[MkPage[Int => EditPage[T]]] = None) = RouterConfigDsl[AnyPage].buildRule { dsl =>
 
     import dsl._
 
