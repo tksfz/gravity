@@ -1,18 +1,14 @@
 package gravity.ui
 
 import apiclient.Get
-import blog.models.Post
-import chandu0101.scalajs.react.components.WithAsyncScript
 import chandu0101.scalajs.react.components.materialui.{Mui, MuiAppBar, MuiIconButton, MuiMuiThemeProvider, MuiSvgIcon}
 import japgolly.scalajs.react.{Callback, ReactComponentB, ReactComponentC, ReactElement, ReactNode, TopNode}
 import japgolly.scalajs.react.extra.router.StaticDsl.{Route, RouteB, Rule}
 import japgolly.scalajs.react.extra.router.{Path, RouterConfigDsl, RouterCtl}
 import japgolly.scalajs.react.vdom.ReactTagOf
 import japgolly.scalajs.react.vdom.prefix_<^._
-import org.scalajs.dom.html
-import shapeless.ops.function.FnToProduct
-import shapeless._
-import shapeless.ops.hlist.{LiftAll, Selector, SubtypeUnifier}
+import shapeless.{$up => _, _}
+import shapeless.ops.hlist.{Selector, SubtypeUnifier}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -69,55 +65,42 @@ object ClassRoutes {
 
   implicit def toLazyUndefOrReactElement[T <: TopNode](f: () => ReactTagOf[T]): () => js.UndefOr[ReactElement] = { () => f() }
 
-  // ClassTag is used to provide an api-name but we might need to do better
-  def standardViewPageRoute[T]
-  (implicit
-    ct: ClassTag[T],
-    get: Get[T],
-    v: View[T]) = RouterConfigDsl[AnyPage].buildRule { dsl =>
-    import dsl._
-
-    val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
-
-    dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[ViewPage[T]]) ~>
-      dynRenderR { (detailPage, router) =>
-        val editLink = { () =>
-          router.link(EditPage[T](detailPage.id))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
-        }
-        val mainProps = MainLayoutProps(router/*, iconElementRight = editLink*/)
-        DetailPageComponent((detailPage.id, mainProps))
-      }
-  }
-
-
   /**
     * Dependency injection of route keys, used to support linking to app-defined routes.
     *
     * Suppose a library generates a page L and would like to link from the L to some app-defined
     * page P. Then the library defines a marker trait T and the app author ensures that P extends T.
-    * Where `P <: T` is wanted, the library declares `implicit t: MkPage[T]`. To provide
+    * Where `P <: T` is wanted, the library declares `implicit t: MkPage[T]`:
+    *
+    * def doSomething(implicit editPage: MkPage[Int => EditPage[T]]) = {
+    *   editPage.apply
+    * }
+    *
+    * To provide this dependency,
     *
     * When the desired route is "dynamic" meaning that it should accept some arguments (e.g.
     * an edit page requiring a row id), the library uses `T = Id => EditPage` and the app author
     * can provide route case class's object apply method.
     *
-    * @tparam F
+    * TODO: rename to `Link`?
+    *
+    * @tparam F typically a marker trait declared by a library that would like to link to a particular
+    *           kind of page
     */
-  // some pages are "static" - they don't require functions
-  case class MkPage[F](apply: F) //(implicit isFunction: FnToProduct[F])
+  case class MkPage[F](apply: F)
+
+  object MkPage {
+    /**
+      * An optional dependency is declared as `implicit ev: Option[T] = None`. When implicit `t: T` is available,
+      * this provides `Some(t)`.
+      */
+    implicit def some[F](implicit mkPage: MkPage[F]) = Some(mkPage)
+  }
 
   type MkEditPage[T] = MkPage[Int => EditPage[T]]
 
   implicit val mkEditPage = MkPage(PostEdit.apply _)
 
-  def doSomething
-  (implicit
-    editPage: MkPage[Int => EditPage[T]]
-  ) = {
-    editPage.apply
-  }
-
-  // will Selector respect covariance / contravariance?
   implicit def mkPageFromKnownPages[L <: HList, F, M <: HList]
   (implicit
     pages: MkPages[L],
@@ -148,62 +131,27 @@ object ClassRoutes {
 
   // TODO: change terminology. Page is misleading. really these are RouteKeys
 
-  /**
-    * Selects the first element of HList `L` that is a function of the form
-    *
-    *   (A1, A2, ...) => R
-    *
-    * where the arguments are specified with arbitrary arity by HList `A = A1 :: A2 :: ...`.
-    * This should respect covariance of the return type so that a functions => S where S <: R should
-    * work.
-    */
-  trait FnSelector[L <: HList, A <: HList, R] {
-    def apply(l: L, a: A): R
-  }
-
-  /**
-    * this doesn't work for generic case classes with implicit classtag i.e. case class MyEditPage[T : ClassTag]()
-    */
-  object FnSelector {
-
-    // no instance for hnil
-
-    // likely we'll need `ev: S <:< P` instead of `S <: R` here to make inference work properly
-    // do we even need S <: R or will FnToProduct work automatically?
-    // what about contravariance of the args?
-    implicit def select[H, T <: HList, A <: HList, R, S <: R]
-    (implicit
-      fnToProduct: FnToProduct.Aux[H, A => S]) = new FnSelector[H :: T, A, R] {
-      override def apply(l: H :: T, a: A): R = {
-        fnToProduct.apply(l.head).apply(a)
-      }
-    }
-
-    implicit def recurse[H, T <: HList, A <: HList, R]
-    (implicit
-      recurse: FnSelector[T, A, R]) = new FnSelector[H :: T, A, R] {
-      override def apply(l: H :: T, a: A): R = recurse.apply(l.tail, a)
-    }
-  }
-
-  def standardViewPageRoute[T](editPageRule: MkPage[EditPage[T]])
+  // ClassTag is used to provide an api-name but we might need to do better
+  def standardViewPageRoute[T]
     (implicit
       ct: ClassTag[T],
       get: Get[T],
-      v: View[T]) = RouterConfigDsl[AnyPage].buildRule { dsl =>
-
-    editPageRule.path
+      v: View[T],
+      mkEditPage: Option[MkPage[Int => EditPage[T]]] = None) = RouterConfigDsl[AnyPage].buildRule { dsl =>
 
     import dsl._
 
     val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
 
-    editPageRule.link(EditPage[T])
-
-      dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[ViewPage[T]]) ~>
+    dynamicRouteCT(("#" / ct.runtimeClass.getSimpleName / int).caseClass[ViewPage[T]]) ~>
       dynRenderR { (detailPage, router) =>
         val editLink = { () =>
-          router.link(EditPage[T](detailPage.id))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
+          mkEditPage map { mk =>
+            val editPage = mk.apply(detailPage.id)
+            router.link(editPage)(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
+          } getOrElse {
+            EmptyTag
+          }
         }
         val mainProps = MainLayoutProps(router/*, iconElementRight = editLink*/)
         DetailPageComponent((detailPage.id, mainProps))
