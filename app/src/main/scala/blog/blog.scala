@@ -2,13 +2,14 @@ package blog
 
 import java.time.LocalDate
 
-import gravity.ui.{ClassRoutes, EnableRelaxedImplicits}
+import gravity.ui.{AnyPage, ClassRoutes, EnableRelaxedImplicits}
 
 import scala.concurrent.Future
 
 object models {
 
   import AllPosts._
+  import gravity.ui.generic._
 
   case class Post(
     id: Int,
@@ -17,6 +18,8 @@ object models {
     date: LocalDate,
     body: String
   )
+
+  case class PostView(id: Int) extends AnyPage
 
   // TODO: detail page code should accept P as a type param
   // and a function from id => P
@@ -32,7 +35,7 @@ object models {
 
   // TODO: standard routes should take MainLayout as an implicit
   implicit val postRoutes = ClassRoutes[Post] {
-      ClassRoutes.standardViewPageRoute[Post] | ClassRoutes.classListPageRoute(allPostsQuery)
+      ClassRoutes.standardViewPageRoute[Post, PostView] | ClassRoutes.classListPageRoute(allPostsQuery)
     }
 
 
