@@ -59,7 +59,8 @@ object ClassRoutes {
     e: Edit[T],
     get: Get[T],
     ct: ClassTag[T],
-    p: Routable[Int, P]) = ClassRoutes[T](standardViewPageRoute | standardEditPageRoute)
+    cp: ClassTag[P],
+    p: Routable[P, Int]) = ClassRoutes[T](standardViewPageRoute[T, P] | standardEditPageRoute[T])
 
   import chandu0101.scalajs.react.components.Implicits._
 
@@ -78,7 +79,7 @@ object ClassRoutes {
     cp: ClassTag[P],
     get: Get[T],
     v: View[T],
-    tg: Routable[Int, P]
+    r: Routable[P, Int]
   ) = RouterConfigDsl[AnyPage].buildRule { dsl =>
     import dsl._
 
@@ -86,14 +87,14 @@ object ClassRoutes {
 
     dynamicRouteCT(
       ("#" / ct.runtimeClass.getSimpleName / int)
-        .xmap(tg.apply)(tg.unapply)
+        .xmap(r.apply)(r.unapply)
     ) ~>
       dynRenderR { (detailPage, router) =>
         val editLink = { () =>
-          router.link(EditPage[T](tg.unapply(detailPage)))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
+          router.link(EditPage[T](r.unapply(detailPage)))(MuiIconButton()(Mui.SvgIcons.ImageEdit()()))
         }
         val mainProps = MainLayoutProps(router/*, iconElementRight = editLink*/)
-        DetailPageComponent((tg.unapply(detailPage), mainProps))
+        DetailPageComponent((r.unapply(detailPage), mainProps))
       }
   }
 
