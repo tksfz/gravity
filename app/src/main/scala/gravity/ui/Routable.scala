@@ -1,7 +1,48 @@
 package gravity.ui
 
 import generic._
-import shapeless.{$up => _, _}
+import shapeless.HList
+import shapeless.ops.hlist.{Selector, SubtypeUnifier}
+
+/**
+  * Type class supporting linking to a page type P that accepts argument T
+  *
+  * @tparam P page type
+  * @tparam T route arguments from which the page can be instantiated
+  */
+trait Linkable[+P, -T] {
+  def apply(t: T): P
+}
+
+// TODO: static pages
+object Linkable {
+
+  // liftall implicit
+  case class Links[L <: HList]()
+
+  // routable => linkable
+  implicit def linkableFromRoutable[C <: Product, T]
+  (implicit routable: Routable[C, T]) = new Linkable[C, T] {
+    override def apply(t: T): C = routable.apply(t)
+  }
+
+  implicit def linkableFromLinks2[Sup, T, L <: HList, I <: HList, J <: HList]
+  (implicit
+    links: Links[L],
+    liftAll: LiftAll2.Aux[Linkable, L, I],
+    unify: SubtypeUnifier.Aux[I, Linkable[Sup, T], J],
+    select: Selector[J, Linkable[Sup, T]]
+  ) = new Linkable[Sup, T] {
+    override def apply(t: T): Sup = select(unify(liftAll.instances)).apply(t)
+  }
+
+  implicit def some[P, T]
+  (implicit linkable: Linkable[P, T]): Option[Linkable[P, T]] = Some(linkable)
+}
+
+trait Pathable[-P, +T] {
+  def unapply(p: P): T
+}
 
 /**
   * Type class supporting injection of app page types into libraries that use those pages (either
@@ -10,10 +51,7 @@ import shapeless.{$up => _, _}
   * @tparam P page type
   * @tparam T route arguments from which the page can be instantiated or destructured to
   */
-trait Routable[P, T] {
-  def apply(t: T): P
-  def unapply(p: P): T
-}
+trait Routable[P, T] extends Linkable[P, T] with Pathable[P, T]
 
 object Routable {
 
