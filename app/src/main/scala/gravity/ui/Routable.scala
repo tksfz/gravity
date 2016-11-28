@@ -2,7 +2,7 @@ package gravity.ui
 
 import generic._
 import shapeless.HList
-import shapeless.ops.hlist.{Selector, SubtypeUnifier}
+import shapeless.ops.hlist.{LiftAll, Selector, SubtypeUnifier}
 
 /**
   * Type class supporting linking to a page type P that accepts argument T
@@ -17,6 +17,8 @@ trait Linkable[+P, -T] {
 // TODO: static pages
 object Linkable {
 
+  type Lamb[S] = { type Da[Q] = Linkable[Q, S] }
+
   // liftall implicit
   case class Links[L <: HList]()
 
@@ -29,7 +31,7 @@ object Linkable {
   implicit def linkableFromLinks2[Sup, T, L <: HList, I <: HList, J <: HList]
   (implicit
     links: Links[L],
-    liftAll: LiftAll2.Aux[Linkable, L, I],
+    liftAll: LiftAll.Aux[Lamb[T]#Da, L, I], // this is wrong: we want LiftSome
     unify: SubtypeUnifier.Aux[I, Linkable[Sup, T], J],
     select: Selector[J, Linkable[Sup, T]]
   ) = new Linkable[Sup, T] {
@@ -59,7 +61,7 @@ object Routable {
     * @tparam C a case class
     * @tparam T a tuple type
     */
-  implicit def routableTupleCaseClass[C <: Product, T]
+  implicit def routableTupleCaseClass[C <: Product, T <: Product]
   (implicit tg: TupleGeneric.Aux[C, T]) = new Routable[C, T] {
     def apply(t: T) = tg.from(t)
     def unapply(p: C) = tg.to(p)

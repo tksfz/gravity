@@ -2,7 +2,9 @@ package blog
 
 import java.time.LocalDate
 
-import gravity.ui.{AnyPage, ClassRoutes, EnableRelaxedImplicits}
+import gravity.ui.ClassRoutes.EditTrait
+import gravity.ui._
+import shapeless._
 
 import scala.concurrent.Future
 
@@ -19,6 +21,7 @@ object models {
     body: String
   )
 
+  case class PostEdit(id: Int) extends AnyPage with EditTrait[Post]
   case class PostView(id: Int) extends AnyPage
 
   // TODO: detail page code should accept P as a type param
@@ -32,6 +35,13 @@ object models {
   // but still referenceable
 
   import EnableRelaxedImplicits._
+
+  implicit val linkables = Linkable.Links[PostEdit :: HNil]()
+
+  implicit val r = implicitly[Routable[PostEdit, Int]]
+  //implicitly[Routable[PostEdit, Int]]
+  implicitly[Linkable[PostEdit, Int]]
+  implicitly[Linkable[EditTrait[Post], Int]]
 
   // TODO: standard routes should take MainLayout as an implicit
   implicit val postRoutes = ClassRoutes[Post] {

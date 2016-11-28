@@ -2,7 +2,7 @@ package blog
 
 import app.App.{Home, RouteNotFound}
 import app.AppCSS
-import blog.models.Post
+import blog.models._
 import gravity.ui.{AnyPage, ClassRoutes}
 import japgolly.scalajs.react.{ReactComponentB, ReactDOM}
 import japgolly.scalajs.react.extra.router.{BaseUrl, Redirect, Router, RouterConfigDsl}
@@ -13,7 +13,6 @@ import scala.scalajs.js
 import scala.scalajs.js.Dynamic._
 import scala.scalajs.js.JSApp
 import scala.scalajs.js.Dynamic.{global => g}
-import gravity.ui.Routable._
 
 
 /**
