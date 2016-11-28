@@ -5,6 +5,7 @@ import gravity.ui._
 import gravity.ui.View._
 import gravity.ui.Edit._
 import gravity.models.{ObjectId, OneId, Phone}
+import gravity.ui.ClassRoutes.EditTrait
 
 import scala.scalajs.js.JSApp
 import japgolly.scalajs.react._
@@ -26,6 +27,9 @@ object App extends JSApp {
   case object Home extends AnyPage
   case object RouteNotFound extends AnyPage
   case class ContactView(id: Int) extends AnyPage
+  case class ContactEdit(id: Int) extends AnyPage with EditTrait[Contact]
+
+  //implicit val links = Linkable.Links[ContactEdit
 
   val homePage = ReactComponentB[Unit]("home")
     .render(P => <.div("Welcome Home"))

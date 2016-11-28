@@ -48,6 +48,9 @@ object ClassRoutes {
   case class EditPage[T : ClassTag](id: Int) extends AnyPage
   case class ListPage[T : ClassTag]() extends AnyPage
 
+  // Marker trait for injected edit pages
+  trait EditTrait[T]
+
   import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
   import japgolly.scalajs.react.vdom.Implicits._
 
@@ -60,27 +63,27 @@ object ClassRoutes {
     get: Get[T],
     ct: ClassTag[T],
     cp: ClassTag[P],
-    p: Routable[P, Int]) = ClassRoutes[T](standardViewPageRoute[T, P] | standardEditPageRoute[T])
+    p: Routable[P, Int],
+    editLink: Linkable[EditTrait[T], Int]
+  ) = ClassRoutes[T](standardViewPageRoute[T, P] | standardEditPageRoute[T])
 
   import chandu0101.scalajs.react.components.Implicits._
 
   implicit def toLazyUndefOrReactElement[T <: TopNode](f: () => ReactTagOf[T]): () => js.UndefOr[ReactElement] = { () => f() }
 
-  // v0: Generic.Aux over Tuple1[Int] and P, then an =:= on their Out's - doesn't work for whatever reason
-  // v1: TupleGeneric.  kind of works, but may be too tight a constraint on P
-  // v2: pass in (P.apply _: Int => P, P.unapply _: P => Int) AND require P <: (ViewPage { def id })
-  //     this has some redundancy between P.unapply and P <: ViewPage { def id }
-  //     maybe we can get rid of the P.unapply bit
-
-  // ClassTag is used to provide an api-name but we might need to do better
+  /**
+    * @param ct used to provide a url path but we can do better
+    * @tparam P page type must be specified explicitly because `Routable[P]` is invariant
+    */
   def standardViewPageRoute[T, P <: AnyPage]
   (implicit
     ct: ClassTag[T],
     cp: ClassTag[P],
     get: Get[T],
     v: View[T],
-    r: Routable[P, Int]
-  ) = RouterConfigDsl[AnyPage].buildRule { dsl =>
+    r: Routable[P, Int],
+    editLink: Linkable[EditTrait[T], Int]
+  ): Rule[AnyPage] = RouterConfigDsl[AnyPage].buildRule { dsl =>
     import dsl._
 
     val DetailPageComponent = singleRowPageComponent[T](v.view(_, _))
