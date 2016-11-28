@@ -63,6 +63,46 @@ object generic {
       }
   }
 
+  /**
+    * Typeclass witnessing that all the elements of an HList have instances of the given typeclass.
+    * Courtesy of mpilquist.
+    *
+    * @author Tin Pavlinic
+    */
+  sealed trait LiftSome[F[_], In <: HList] {
+    type Out <: HList
+    def instances: Out
+  }
+
+  object LiftSome {
+    type Aux[F[_], In0 <: HList, Out0 <: HList] = LiftSome[F, In0] {type Out = Out0}
+    class Curried[F[_]] {def apply[In <: HList](in: In)(implicit ev: LiftSome[F, In]) = ev}
+
+    def apply[F[_]] = new Curried[F]
+    def apply[F[_], In <: HList](implicit ev: LiftSome[F, In]) = ev
+
+    implicit def hnil[F[_]]: LiftSome.Aux[F, HNil, HNil] = new LiftSome[F, HNil] {
+      type Out = HNil
+      def instances = HNil
+    }
+
+    implicit def hcons[F[_], H, T <: HList, TI <: HList]
+    (implicit headInstance: F[H], tailInstances: Aux[F, T, TI]): Aux[F, H :: T, F[H] :: TI] =
+      new LiftSome[F, H :: T] {
+        type Out = F[H] :: TI
+        def instances = headInstance :: tailInstances.instances
+      }
+
+    // I really doubt this works
+    implicit def hconsNegative[F[_], H, T <: HList, TI <: HList]
+    (implicit tailInstances: Aux[F, T, TI]): Aux[F, H :: T, TI] =
+      new LiftSome[F, H :: T] {
+        type Out = TI
+        def instances = tailInstances.instances
+      }
+
+  }
+
 
 
 }
