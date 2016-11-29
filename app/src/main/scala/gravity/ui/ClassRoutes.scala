@@ -64,7 +64,7 @@ object ClassRoutes {
     ct: ClassTag[T],
     cp: ClassTag[P],
     p: Routable.Aux[P, Int],
-    editLink: Linkable[EditTrait[T]]
+    editLink: Option[Linkable[EditTrait[T]]] = None
   ) = ClassRoutes[T](standardViewPageRoute[T, P] | standardEditPageRoute[T])
 
   import chandu0101.scalajs.react.components.Implicits._
@@ -82,7 +82,7 @@ object ClassRoutes {
     get: Get[T],
     v: View[T],
     r: Routable.Aux[P, Int],
-    editLink: Linkable[EditTrait[T]]
+    editLink: Option[Linkable[EditTrait[T]]] = None
   ): Rule[AnyPage] = RouterConfigDsl[AnyPage].buildRule { dsl =>
     import dsl._
 
