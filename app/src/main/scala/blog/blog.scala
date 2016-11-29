@@ -36,7 +36,7 @@ object models {
 
   import EnableRelaxedImplicits._
 
-  implicit val _ = Routable[PostEdit].apply[Int]
+  implicit val _ = Routable[PostEdit]
 
   // TODO: standard routes should take MainLayout as an implicit
   implicit val postRoutes = ClassRoutes[Post] {
