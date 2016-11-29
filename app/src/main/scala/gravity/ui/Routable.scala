@@ -1,6 +1,7 @@
 package gravity.ui
 
 import generic._
+import shapeless.Witness
 
 /**
   * Type class supporting linking to a page type P that accepts argument T
@@ -73,6 +74,13 @@ object Routable {
     override type Args = A
     def apply(a: Args) = tg.from(Tuple1(a))
     def unapply(p: C) = tg.to(p)._1
+  }
+
+  implicit def routableSingleton[S]
+  (implicit isSingleton: Witness.Aux[S]) = new Routable[S] {
+    override type Args = Unit
+    def apply(a: Unit) = isSingleton.value
+    def unapply(p: S) = ()
   }
 
   // TODO: unit

@@ -46,7 +46,6 @@ object ClassRoutes {
     */
   case class ViewPage[T : ClassTag](id: Int) extends AnyPage
   case class EditPage[T : ClassTag](id: Int) extends AnyPage
-  case class ListPage[T : ClassTag]() extends AnyPage
 
   // Marker trait for injected edit pages
   trait EditTrait[T]
@@ -163,15 +162,19 @@ object ClassRoutes {
     })
     .build
 
-  def classListPageRoute[T](getData: => Future[Seq[T]])
+  def classListPageRoute[T, P <: AnyPage](getData: => Future[Seq[T]])
   (implicit
     ct: ClassTag[T],
-    v: View[Seq[T]]) = {
+    v: View[Seq[T]],
+    p: Routable.Aux[P, Unit]
+  ) = {
     // these implicits copied from Dsl.scala should be put somewhere more accessible
     implicit def _auto_routeB_from_str(l: String) = RouteB.literal(l)
     implicit def _auto_route_from_routeB[A, R <% RouteB[A]](r: R) = r.route
 
-    staticListPageRoute("#" / ct.runtimeClass.getSimpleName, ListPage[T](), getData)
+    staticListPageRoute(
+      ("#" / ct.runtimeClass.getSimpleName).xmap(identity)(identity),
+      p.apply(()), getData)
   }
 
   def staticListPageRoute[P <: AnyPage, T](route: Route[Unit], page: P, getData: => Future[Seq[T]])
