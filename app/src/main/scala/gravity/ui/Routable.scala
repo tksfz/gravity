@@ -6,23 +6,23 @@ import generic._
   * Type class supporting linking to a page type P that accepts argument T
   *
   * @tparam P page type
-  * @tparam T route arguments from which the page can be instantiated
   */
 trait Linkable[+P] {
-  type Repr
-  def apply(t: Repr): P
+  /** route arguments from which the page can be instantiated */
+  type Args
+  def apply(t: Args): P
 }
 
 // TODO: static pages
 object Linkable {
 
-  type Aux[Page, T] = Linkable[Page] { type Repr = T }
+  type Aux[Page, T] = Linkable[Page] { type Args = T }
 
   // routable => linkable
   implicit def linkableFromRoutable[C <: Product]
   (implicit routable: Routable[C]) = new Linkable[C] {
-    type Repr = routable.Repr
-    override def apply(t: Repr): C = routable.apply(t)
+    type Args = routable.Args
+    override def apply(t: Args): C = routable.apply(t)
   }
 
   implicit def some[P, T]
@@ -30,8 +30,9 @@ object Linkable {
 }
 
 trait Pathable[-P] {
-  type Repr
-  def unapply(p: P): Repr
+  /** route arguments from which the page can be instantiated or destructured to */
+  type Args
+  def unapply(p: P): Args
 }
 
 /**
@@ -39,24 +40,27 @@ trait Pathable[-P] {
   * generating page contents or linking to them)
   *
   * @tparam P page type
-  * @tparam T route arguments from which the page can be instantiated or destructured to
   */
 trait Routable[P] extends Linkable[P] with Pathable[P]
 
 object Routable {
 
-  type Aux[Page, T] = Routable[Page] { type Repr = T }
+  type Aux[Page, T] = Routable[Page] { type Args = T }
 
+  /**
+    * Helper to inject Linkable instances. In app code:
+    *     caes class MyPage(..) extends SomeInjectableTrait
+    *     implicit val _ = Routable[MyPage]
+    */
   def apply[P : Routable] = implicitly[Routable[P]]
 
   /**
     * @tparam C a case class
-    * @tparam T a tuple type
     */
   implicit def routableTupleCaseClass[C <: Product]
   (implicit tg: TupleGeneric[C]) = new Routable[C] {
-    type Repr = tg.Repr
-    def apply(t: Repr) = tg.from(t)
+    override type Args = tg.Repr
+    def apply(t: Args) = tg.from(t)
     def unapply(p: C) = tg.to(p)
   }
 
@@ -66,8 +70,8 @@ object Routable {
     */
   implicit def routableTuple1CaseClass[C <: Product, A]
   (implicit tg: TupleGeneric.Aux[C, Tuple1[A]]) = new Routable[C] {
-    type Repr = A
-    def apply(a: Repr) = tg.from(Tuple1(a))
+    override type Args = A
+    def apply(a: Args) = tg.from(Tuple1(a))
     def unapply(p: C) = tg.to(p)._1
   }
 
@@ -75,7 +79,7 @@ object Routable {
 
   // custom routable
   def routable[P, T](a: T => P, u: P => T) = new Routable[P] {
-    type Repr = T
+    override type Args = T
     def apply(t: T) = a(t)
     def unapply(p: P) = u(p)
   }
