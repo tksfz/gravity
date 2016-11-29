@@ -23,6 +23,7 @@ object models {
 
   case class PostEdit(id: Int) extends AnyPage with EditTrait[Post]
   case class PostView(id: Int) extends AnyPage
+  case object PostList extends AnyPage
 
   // TODO: detail page code should accept P as a type param
   // and a function from id => P
@@ -36,11 +37,12 @@ object models {
 
   import EnableRelaxedImplicits._
 
-  implicit val _ = Routable[PostEdit]
+  implicit val (_, _) = (Routable[PostEdit], Routable[PostList.type])
 
   // TODO: standard routes should take MainLayout as an implicit
   implicit val postRoutes = ClassRoutes[Post] {
-      ClassRoutes.standardViewPageRoute[Post, PostView] | ClassRoutes.classListPageRoute(allPostsQuery)
+      ClassRoutes.standardViewPageRoute[Post, PostView] |
+        ClassRoutes.classListPageRoute[Post, PostList.type](allPostsQuery)
     }
 
 
