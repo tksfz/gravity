@@ -57,6 +57,13 @@ trait Routable[P, T] extends Linkable[P, T] with Pathable[P, T]
 
 object Routable {
 
+  class Curried[P] {
+    def apply[T]
+    (implicit routable: Routable[P, T]) = routable
+  }
+
+  def apply[P] = new Curried[P]
+
   /**
     * @tparam C a case class
     * @tparam T a tuple type
