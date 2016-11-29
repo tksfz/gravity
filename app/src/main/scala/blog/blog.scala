@@ -36,12 +36,7 @@ object models {
 
   import EnableRelaxedImplicits._
 
-  implicit val linkables = Linkable.Links[PostEdit :: HNil]()
-
-  implicit val r = implicitly[Routable[PostEdit, Int]]
-  //implicitly[Routable[PostEdit, Int]]
-  implicitly[Linkable[PostEdit, Int]]
-  implicitly[Linkable[EditTrait[Post], Int]]
+  implicit val _ = Routable[PostEdit].apply[Int]
 
   // TODO: standard routes should take MainLayout as an implicit
   implicit val postRoutes = ClassRoutes[Post] {
