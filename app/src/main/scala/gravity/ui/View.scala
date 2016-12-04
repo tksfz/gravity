@@ -74,24 +74,22 @@ object View extends RelaxedViewImplicits {
     * `T`'s components. This allows us to display a table where each field of `T` is rendered in its own column,
     * rather than simply displaying a sequence of detail views.
     */
-  implicit def seqTableView[T, TL <: HList, LR <: HList, H <: HList, V <: HList, VM <: HList, M <: HList]
+  implicit def viewSeqHListAsTable[L <: HList, LR <: HList, H <: HList, V <: HList, VM <: HList, M <: HList]
   (implicit
-    v: View[T],
-    tg: ClassGeneric.Aux[T, TL],
-    lr: ZipConst.Aux[RouterCtl[AnyPage], TL, LR],
+    lr: ZipConst.Aux[RouterCtl[AnyPage], L, LR],
     //liftHeaders: LiftAll.Aux[Header, TL, H],
     //headersList: ToTraversable.Aux[H, List, Header[_]],
     mapper: Mapper.Aux[viewPoly.type, LR, M],
     outList: ToTraversable.Aux[M, List, ReactNode]
-  ) = new View[Seq[T]] {
-    override def view(router: RouterCtl[AnyPage], ts: Seq[T]): ReactNode = {
+  ) = new View[Seq[L]] {
+    override def view(router: RouterCtl[AnyPage], ls: Seq[L]): ReactNode = {
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
             MuiTableBody(displayRowCheckbox = false)(
-              ts map { t =>
+              ls map { l =>
                 MuiTableRow(displayBorder = false) {
-                  val elems = ((tg.to(t) zipConst router) map viewPoly).toList
+                  val elems = ((l zipConst router) map viewPoly).toList
                   elems map { e =>
                     MuiTableRowColumn()(e)
                   }
@@ -105,6 +103,15 @@ object View extends RelaxedViewImplicits {
     }
   }
 
+  implicit def viewSeqClassAsTable[T, TL <: HList]
+  (implicit
+    g: ClassGeneric.Aux[T, TL],
+    v: View[Seq[TL]]
+  ) = new View[Seq[T]] {
+    override def view(router: RouterCtl[AnyPage], ts: Seq[T]): ReactNode = {
+      v.view(router, ts.map(g.to(_)))
+    }
+  }
 
   implicit def viewClassTaggedField[K, V, M, C](
     implicit v: View[V],
