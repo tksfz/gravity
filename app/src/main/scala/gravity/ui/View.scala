@@ -107,19 +107,23 @@ object View extends RelaxedViewImplicits {
   // TODO: we should probably be creating components that accept models
   // and somewhere higher-up the model gets passed in
   // i.e. returning ReactComponent here instead of ReactElement
-  implicit def makeTableView[L <: HList, LR <: HList, O <: HList, V <: HList]
+  implicit def makeTableView[L <: HList, LR <: HList, O <: HList, H <: HList]
   (implicit
     lr: ZipConst.Aux[RouterCtl[AnyPage], L, LR],
-    mapper: Mapper.Aux[headerAndView.type, LR, O],
-    trav: ToTraversable.Aux[O, List, (ReactNode, ReactNode)]
+    liftHeaders: LiftAll.Aux[Header, L, H],
+    headersToList: ToTraversable.Aux[H, List, Header[_]],
+    mapper: Mapper.Aux[viewPoly.type, LR, O],
+    trav: ToTraversable.Aux[O, List, ReactNode]
   ) = new View[L] {
     def view(router: RouterCtl[AnyPage], l: L): ReactNode = {
-      val elements: List[(ReactNode, ReactNode)] = (lr(router, l) map headerAndView).toList
+      val headers = liftHeaders.instances.toList.map(_.header)
+      val elements: List[ReactNode] = ((l zipConst router) map viewPoly).toList
+      val headersAndElements = headers zip elements
       ReactComponentB[Unit]("blah")
         .render(_ =>
           MuiTable(selectable = false)(
             MuiTableBody(displayRowCheckbox = false)(
-              elements.grouped(2) map { seq =>
+              headersAndElements.grouped(2) map { seq =>
                 // Four column view: 2 columns of (field header + field value)
                 MuiTableRow(displayBorder = false)(
                   (seq flatMap { case (h, e) =>
@@ -155,29 +159,7 @@ object View extends RelaxedViewImplicits {
   }
 }
 
-object headerAndView extends Poly1 {
-
-  import View._
-  /**
-    * For some reason, the View[FieldType..] instance doesn't seem to be able to pick up
-    * the View[V] instances. So we pick up both here, and use whatever works.
-    */
-  implicit def view[C, K, V]
-  (implicit
-    header: Header[FieldType[K, V] @@ C],
-    v: View[V],
-    view: View[FieldType[K, V] @@ C]) = at[(FieldType[K, V] @@ C, RouterCtl[AnyPage])] { case (t, router) =>
-      (header.header, view.view(router, t))
-    }
-}
-
 object viewPoly extends Poly1 {
-
-  import View._
-  /**
-    * For some reason, the View[FieldType..] instance doesn't seem to be able to pick up
-    * the View[V] instances. So we pick up both here, and use whatever works.
-    */
   implicit def view[C, K, V]
   (implicit
     view: View[FieldType[K, V] @@ C]) = at[(FieldType[K, V] @@ C, RouterCtl[AnyPage])] { case (t, router) =>
