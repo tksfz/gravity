@@ -85,9 +85,23 @@ object View extends RelaxedViewImplicits {
     outList: ToTraversable.Aux[M, List, ReactNode]
   ) = new View[Seq[T]] {
     override def view(router: RouterCtl[AnyPage], ts: Seq[T]): ReactNode = {
-      ts map { t =>
-        ((tg.to(t) zipConst router) map viewPoly).toList
-      }
+      ReactComponentB[Unit]("blah")
+        .render(_ =>
+          MuiTable(selectable = false)(
+            MuiTableBody(displayRowCheckbox = false)(
+              ts map { t =>
+                MuiTableRow(displayBorder = false) {
+                  val elems = ((tg.to(t) zipConst router) map viewPoly).toList
+                  elems map { e =>
+                    MuiTableRowColumn()(e)
+                  }
+                }
+              }
+            )
+          )
+        )
+        .build
+        .apply()
     }
   }
 
