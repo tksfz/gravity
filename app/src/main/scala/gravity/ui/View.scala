@@ -69,6 +69,11 @@ object View extends RelaxedViewImplicits {
 
   import syntax._
 
+  /**
+    * View for `Seq[T]` where `T` is Generic and we're able to get a `View` instance for each of
+    * `T`'s components. This allows us to display a table where each field of `T` is rendered in its own column,
+    * rather than simply displaying a sequence of detail views.
+    */
   implicit def seqTableView[T, TL <: HList, LR <: HList, H <: HList, V <: HList, VM <: HList, M <: HList]
   (implicit
     v: View[T],
