@@ -67,6 +67,26 @@ object View extends RelaxedViewImplicits {
       override def view(router: RouterCtl[AnyPage], t: Option[T]): ReactNode = t.map((t: T) => v.view(router, t)).getOrElse("")
     }
 
+  import syntax._
+
+  implicit def seqTableView[T, TL <: HList, LR <: HList, H <: HList, V <: HList, VM <: HList, M <: HList]
+  (implicit
+    v: View[T],
+    tg: ClassGeneric.Aux[T, TL],
+    lr: ZipConst.Aux[RouterCtl[AnyPage], TL, LR],
+    //liftHeaders: LiftAll.Aux[Header, TL, H],
+    //headersList: ToTraversable.Aux[H, List, Header[_]],
+    mapper: Mapper.Aux[viewPoly.type, LR, M],
+    outList: ToTraversable.Aux[M, List, ReactNode]
+  ) = new View[Seq[T]] {
+    override def view(router: RouterCtl[AnyPage], ts: Seq[T]): ReactNode = {
+      ts map { t =>
+        ((tg.to(t) zipConst router) map viewPoly).toList
+      }
+    }
+  }
+
+
   implicit def viewClassTaggedField[K, V, M, C](
     implicit v: View[V],
     header: Header[FieldType[K, V] @@ C]
@@ -145,3 +165,18 @@ object headerAndView extends Poly1 {
       (header.header, view.view(router, t))
     }
 }
+
+object viewPoly extends Poly1 {
+
+  import View._
+  /**
+    * For some reason, the View[FieldType..] instance doesn't seem to be able to pick up
+    * the View[V] instances. So we pick up both here, and use whatever works.
+    */
+  implicit def view[C, K, V]
+  (implicit
+    view: View[FieldType[K, V] @@ C]) = at[(FieldType[K, V] @@ C, RouterCtl[AnyPage])] { case (t, router) =>
+    view.view(router, t)
+  }
+}
+
