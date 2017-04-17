@@ -28,6 +28,8 @@ trait ClassRoutes[T] {
   def routes: Rule[AnyPage]
 }
 
+case class LinkFunction[I, E](fn: PartialFunction[I, E])
+
 object ClassRoutes {
 
   /** Get the routes implicitly associated with a type `T` using `ClassRoutes[T]` */
@@ -50,12 +52,18 @@ object ClassRoutes {
   // Marker trait for injected edit pages
   trait EditTrait[T]
 
+  sealed trait ModulePage
+  case class ViewModulePage[T](id: Int)(implicit val ct: ClassTag[T]) extends ModulePage
+  case class EditModulePage[T](id: Int)(implicit ct: ClassTag[T]) extends ModulePage
+
+  type ModuleLinkFunction[E] = LinkFunction[ModulePage, E]
+
   import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
   import japgolly.scalajs.react.vdom.Implicits._
 
   // TODO: use optional implicits
   // TODO: change all references to ClassTag to use Label[T]
-  implicit def standardRoutes[T, P <: AnyPage]
+  implicit def standardRoutes[T, A, P <: AnyPage]
   (implicit
     v: View[T],
     e: Edit[T],
@@ -63,8 +71,9 @@ object ClassRoutes {
     ct: ClassTag[T],
     cp: ClassTag[P],
     p: Routable.Aux[P, Int],
+    linker: LinkFunction[ModulePage, A],
     editLink: Option[Linkable[EditTrait[T]]] = None
-  ) = ClassRoutes[T](standardViewPageRoute[T, P] | standardEditPageRoute[T])
+  ) = ClassRoutes[T](standardViewPageRoute[T, A, P] | standardEditPageRoute[T])
 
   import chandu0101.scalajs.react.components.Implicits._
 
@@ -74,13 +83,14 @@ object ClassRoutes {
     * @param ct used to provide a url path but we can do better
     * @tparam P page type must be specified explicitly because `Routable[P]` is invariant
     */
-  def standardViewPageRoute[T, P <: AnyPage]
+  def standardViewPageRoute[T, A, P <: AnyPage]
   (implicit
     ct: ClassTag[T],
     cp: ClassTag[P],
     get: Get[T],
     v: View[T],
     r: Routable.Aux[P, Int],
+    linker: LinkFunction[ModulePage, A],
     editLink: Option[Linkable[EditTrait[T]]] = None
   ): Rule[AnyPage] = RouterConfigDsl[AnyPage].buildRule { dsl =>
     import dsl._
@@ -142,18 +152,37 @@ object ClassRoutes {
       })
       .build
 
+  // either we require View[T] here or we do that in the instance for Linked
+  case class Linked[T, P](t: T, page: P)
+
+  object Linked {
+    implicit def view[T, P, A]
+    (implicit
+      v: View[T],
+      linker: LinkFunction[P, A]
+    ) = new View[Linked[T, P]] {
+      override def view(router: RouterCtl[A], l: Linked[T, P]): ReactNode = {
+        val actualPage = linker.fn(l.page)
+        val link = router.link(actualPage)
+        ???
+      }
+    }
+  }
+
   /**
     * Page-level component for viewing a query
     */
   def queryViewPageComponent[T](initial: T, query: => Future[T])
-    (implicit v: View[T]): ReactComponentC.ReqProps[MainLayoutProps, T, Unit, TopNode] = queryViewPageComponent(initial, query, v.view)
+    (implicit v: View[T]): ReactComponentC.ReqProps[MainLayoutProps, T, Unit, TopNode] = {
+    queryViewPageComponent(initial, query, v.view)
+  }
 
   /**
     * Page-level component for viewing a query
     * TODO: abstract this so that it can also be used with Edit[T] or arbitrary F[T]
     */
   def queryViewPageComponent[T](initial: T, query: => Future[T],
-    renderFn: (RouterCtl[AnyPage], T) => ReactNode): ReactComponentC.ReqProps[MainLayoutProps, T, Unit, TopNode] =
+    renderFn: (RouterCtl[AnyPage], T) => ReactNode): ReactComponentC.ReqProps[MainLayoutProps, T, Unit, TopNode] = {
   ReactComponentB[MainLayoutProps]("viewpage")
     .initialState(initial)
     .render(P => MainLayout(P.props, renderFn(P.props.router, P.state)))
@@ -161,12 +190,14 @@ object ClassRoutes {
       query.map(P.setState(_))
     })
     .build
+  }
 
-  def classListPageRoute[T, P <: AnyPage](getData: => Future[Seq[T]])
+  def classListPageRoute[T, A, P <: AnyPage](getData: => Future[Seq[T]])
   (implicit
     ct: ClassTag[T],
     v: View[Seq[T]],
-    p: Routable.Aux[P, Unit]
+    p: Routable.Aux[P, Unit],
+    linker: LinkFunction[ModulePage, A]
   ) = {
     // these implicits copied from Dsl.scala should be put somewhere more accessible
     implicit def _auto_routeB_from_str(l: String) = RouteB.literal(l)

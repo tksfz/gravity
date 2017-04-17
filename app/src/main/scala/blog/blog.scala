@@ -2,7 +2,7 @@ package blog
 
 import java.time.LocalDate
 
-import gravity.ui.ClassRoutes.EditTrait
+import gravity.ui.ClassRoutes.{EditTrait, ModulePage, ViewModulePage}
 import gravity.ui._
 import shapeless._
 
@@ -39,12 +39,17 @@ object models {
 
   implicit val (_, _) = (Routable[PostEdit], Routable[PostList.type])
 
+  import scala.reflect._
+
+  implicit def linkFunction = LinkFunction[ModulePage, AnyPage] {
+    case p@ViewModulePage(id) if p.ct == classTag[Post] => PostView(id)
+  }
+
   // TODO: standard routes should take MainLayout as an implicit
   implicit val postRoutes = ClassRoutes[Post] {
-      ClassRoutes.standardViewPageRoute[Post, PostView] |
-        ClassRoutes.classListPageRoute[Post, PostList.type](allPostsQuery)
+      ClassRoutes.standardViewPageRoute[Post, AnyPage, PostView] |
+        ClassRoutes.classListPageRoute[Post, AnyPage, PostList.type](allPostsQuery)
     }
-
 
   //def query = Query[Post].listAll
   // this should be of type

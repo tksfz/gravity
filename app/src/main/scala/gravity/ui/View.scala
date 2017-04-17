@@ -32,18 +32,18 @@ import scala.reflect.ClassTag
   *     derivation. It can still call out to the standard typeclass instances if it so
   *     desires.
   */
-trait View[T] {
+trait View[A, T] {
   // alternatively makes this return a ReactComponentC[T]?
 
-  def view(router: RouterCtl[AnyPage], t: T): ReactNode // ReactElement?
+  def view(router: RouterCtl[A], t: T): ReactNode // ReactElement?
 }
 
 trait RelaxedViewImplicits {
-  implicit def defaultView[T]
+  implicit def defaultView[A, T]
   (implicit
     relax: RelaxedImplicits,
-    classTag: ClassTag[T]) = new View[T] {
-    override def view(router: RouterCtl[AnyPage], t: T): ReactNode =
+    classTag: ClassTag[T]) = new View[A, T] {
+    override def view(router: RouterCtl[A], t: T): ReactNode =
       Seq(classTag.toString, "(no View instance found): ", t.toString)
       // TODO: mouseover describing the type
   }
@@ -52,12 +52,12 @@ trait RelaxedViewImplicits {
 
 object View extends RelaxedViewImplicits {
 
-  implicit object StringView extends View[String] {
-    override def view(router: RouterCtl[AnyPage], t: String): ReactNode = t
+  implicit def stringView[A] = new View[A, String] {
+    override def view(router: RouterCtl[A], t: String): ReactNode = t
   }
 
-  implicit object IntView extends View[Int] {
-    override def view(router: RouterCtl[AnyPage], t: Int): ReactNode = t.toString
+  implicit def intView[A] = new View[A, Int] {
+    override def view(router: RouterCtl[A], t: Int): ReactNode = t.toString
   }
 
   import js.JSConverters._
